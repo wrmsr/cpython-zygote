@@ -56,7 +56,7 @@ PyAPI_FUNC(void) _PyMem_SetupContiguousAllocation(size_t narenas);
 PyAPI_DATA(int) _PyMem_ContiguousAllocationFallback;
 
 PyAPI_DATA(void *) _PyMem_ContiguousBase;
-PyAPI_DATA(size_t) _PyMem_ContiguousEnd;
+PyAPI_DATA(void *) _PyMem_ContiguousEnd;
 
 PyAPI_DATA(void *) _PyMem_PinnedBase;
 PyAPI_DATA(void *) _PyMem_PinnedEnd;

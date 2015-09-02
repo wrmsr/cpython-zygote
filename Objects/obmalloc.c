@@ -556,11 +556,11 @@ void *_PyMem_ContiguousEnd = NULL;
 int _PyMem_ContiguousAllocationFallback = 0;
 
 struct arena_placeholder {
-    arena_placeholder *next;
+    struct arena_placeholder *next;
     char padding[ARENA_SIZE - sizeof(arena_placeholder)];
 };
 
-static arena_placeholder *contiguous_head = NULL;
+static struct arena_placeholder *contiguous_head = NULL;
 
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
  * allocate a new arena, and return the address of an arena_object
