@@ -22,10 +22,17 @@
 #include "frameobject.h"        /* for PyFrame_ClearFreeList */
 
 /* Get an object's GC head */
-#define AS_GC(o) ((PyGC_Head *)(o)-1)
+#define AS_GC(o) (Py_PINNED(o) ? *((PyGC_Head **) ((PyGC_Head *)(o)-1)) : (PyGC_Head *)(o)-1)
 
 /* Get the object given the GC head */
-#define FROM_GC(g) ((PyObject *)(((PyGC_Head *)g)+1))
+#define FROM_GC(g) (Py_PINNED(g) ? *((PyObject **)(((PyGC_Head *)g)+1)) : (PyObject *)(((PyGC_Head *)g)+1))
+
+struct pinned_gc_head {
+    PyGC_Head head;
+    PyObject *object;
+};
+
+static struct pinned_gc_head *pinned_gc_heads = NULL;
 
 /*** Global GC state ***/
 
@@ -1091,6 +1098,58 @@ gc_isenabled(PyObject *self, PyObject *noargs)
     return PyBool_FromLong((long)enabled);
 }
 
+PyDoc_STRVAR(gc_pin__doc__,
+"pin() -> None\n"
+"\n"
+"Pins heap.\n");
+
+static PyObject *
+gc_pin(PyObject *self, PyObject *noargs)
+{
+    if (_PyMem_PinState != PyMem_PIN_READY) {
+        PyErr_SetString(PyExc_EnvironmentError, "not ready to pin");
+        return NULL;
+    }
+    assert(pinned_gc_heads == NULL);
+
+    collecting = 1;
+    collect(NUM_GENERATIONS-1);
+    collecting = 0;
+
+    /*
+void *_PyMem_PinnedBase = NULL;
+void *_PyMem_PinnedEnd = NULL;
+int _PyMem_PinState = PyMem_PIN_NONE;
+
+void *_PyMem_ContiguousAllocationBase = NULL;
+size_t _PyMem_ContiguousAllocationSize = 0;
+int _PyMem_ForceContiguousAllocation = 0;
+
+gc_get_objects:
+    for (i = 0; i < NUM_GENERATIONS; i++) {
+        if (append_objects(result, GEN_HEAD(i))) {
+            Py_DECREF(result);
+            return NULL;
+        }
+    }
+
+append_objects:
+    PyGC_Head *gc;
+    for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+        PyObject *op = FROM_GC(gc);
+        if (op != py_list) {
+            if (PyList_Append(py_list, op)) {
+                return -1;
+            }
+        }
+    }
+    */
+
+Fail:
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 PyDoc_STRVAR(gc_collect__doc__,
 "collect([generation]) -> n\n"
 "\n"
@@ -1366,6 +1425,7 @@ static PyMethodDef GcMethods[] = {
     {"enable",             gc_enable,     METH_NOARGS,  gc_enable__doc__},
     {"disable",            gc_disable,    METH_NOARGS,  gc_disable__doc__},
     {"isenabled",          gc_isenabled,  METH_NOARGS,  gc_isenabled__doc__},
+    {"pin",                gc_pin,        METH_NOARGS,  gc_pin__doc__},
     {"set_debug",          gc_set_debug,  METH_VARARGS, gc_set_debug__doc__},
     {"get_debug",          gc_get_debug,  METH_NOARGS,  gc_get_debug__doc__},
     {"get_count",          gc_get_count,  METH_NOARGS,  gc_get_count__doc__},

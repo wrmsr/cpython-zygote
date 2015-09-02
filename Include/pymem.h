@@ -52,6 +52,28 @@ extern "C" {
 PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 PyAPI_FUNC(void *) PyMem_Realloc(void *, size_t);
 PyAPI_FUNC(void) PyMem_Free(void *);
+PyAPI_FUNC(void) _PyMem_SetupContiguousAllocation(size_t pinreserve);
+
+PyAPI_DATA(void *) _PyMem_ContiguousAllocationBase;
+PyAPI_DATA(size_t) _PyMem_ContiguousAllocationSize;
+PyAPI_DATA(size_t) _PyMem_ContiguousAllocationFree;
+PyAPI_DATA(int) _PyMem_ContiguousAllocationFallback;
+
+PyAPI_DATA(void *) _PyMem_PinnedBase;
+PyAPI_DATA(void *) _PyMem_PinnedEnd;
+PyAPI_DATA(int) _PyMem_PinState;
+
+#define PyMem_PIN_NONE   0
+#define PyMem_PIN_READY  1
+#define PyMem_PIN_PINNED 2
+
+PyAPI_DATA(void *) _PyMem_usedpools_addr;
+PyAPI_DATA(void *) _PyMem_maxarenas_addr;
+PyAPI_DATA(void *) _PyMem_arenas_addr;
+PyAPI_DATA(void *) _PyMem_unused_arena_objects_addr;
+PyAPI_DATA(void *) _PyMem_usable_arenas_addr;
+PyAPI_DATA(void *) _PyMem_narenas_currently_allocated_addr;
+PyAPI_DATA(int) _PyMem_ARENAS_USE_MMAP;
 
 /* Starting from Python 1.6, the wrappers Py_{Malloc,Realloc,Free} are
    no longer supported. They used to call PyErr_NoMemory() on failure. */
@@ -72,9 +94,9 @@ PyAPI_FUNC(void) PyMem_Free(void *);
 /* Returns NULL to indicate error if a negative size or size larger than
    Py_ssize_t can represent is supplied.  Helps prevents security holes. */
 #define PyMem_MALLOC(n)		((size_t)(n) > (size_t)PY_SSIZE_T_MAX ? NULL \
-				: malloc((n) ? (n) : 1))
+                             : malloc((n) ? (n) : 1))
 #define PyMem_REALLOC(p, n)	((size_t)(n) > (size_t)PY_SSIZE_T_MAX  ? NULL \
-				: realloc((p), (n) ? (n) : 1))
+                             : realloc((p), (n) ? (n) : 1))
 #define PyMem_FREE		free
 
 #endif	/* PYMALLOC_DEBUG */
@@ -91,10 +113,10 @@ PyAPI_FUNC(void) PyMem_Free(void *);
 
 #define PyMem_New(type, n) \
   ( ((size_t)(n) > PY_SSIZE_T_MAX / sizeof(type)) ? NULL :	\
-	( (type *) PyMem_Malloc((n) * sizeof(type)) ) )
+    ( (type *) PyMem_Malloc((n) * sizeof(type)) ) )
 #define PyMem_NEW(type, n) \
   ( ((size_t)(n) > PY_SSIZE_T_MAX / sizeof(type)) ? NULL :	\
-	( (type *) PyMem_MALLOC((n) * sizeof(type)) ) )
+    ( (type *) PyMem_MALLOC((n) * sizeof(type)) ) )
 
 /*
  * The value of (p) is always clobbered by this macro regardless of success.
@@ -104,10 +126,10 @@ PyAPI_FUNC(void) PyMem_Free(void *);
  */
 #define PyMem_Resize(p, type, n) \
   ( (p) = ((size_t)(n) > PY_SSIZE_T_MAX / sizeof(type)) ? NULL :	\
-	(type *) PyMem_Realloc((p), (n) * sizeof(type)) )
+    (type *) PyMem_Realloc((p), (n) * sizeof(type)) )
 #define PyMem_RESIZE(p, type, n) \
   ( (p) = ((size_t)(n) > PY_SSIZE_T_MAX / sizeof(type)) ? NULL :	\
-	(type *) PyMem_REALLOC((p), (n) * sizeof(type)) )
+    (type *) PyMem_REALLOC((p), (n) * sizeof(type)) )
 
 /* PyMem{Del,DEL} are left over from ancient days, and shouldn't be used
  * anymore.  They're just confusing aliases for PyMem_{Free,FREE} now.

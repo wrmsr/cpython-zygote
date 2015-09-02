@@ -764,18 +764,21 @@ PyAPI_FUNC(void) _Py_AddToAllObjects(PyObject *, int force);
     (*Py_TYPE(op)->tp_dealloc)((PyObject *)(op)))
 #endif /* !Py_TRACE_REFS */
 
+#define Py_PINNED(p)                           \
+    ((void *) p >= (void *) _PyMem_PinnedBase && (void *) p < (void *) _PyMem_PinnedEnd)
+
 #define Py_INCREF(op) (                         \
     _Py_INC_REFTOTAL  _Py_REF_DEBUG_COMMA       \
-    ((PyObject*)(op))->ob_refcnt++)
+    (!Py_PINNED(op) ? ((PyObject*)(op))->ob_refcnt++ : ((PyObject*)(op))->ob_refcnt))
 
 #define Py_DECREF(op)                                   \
-    do {                                                \
+    do { if (!Py_PINNED(op)) {                          \
         if (_Py_DEC_REFTOTAL  _Py_REF_DEBUG_COMMA       \
         --((PyObject*)(op))->ob_refcnt != 0)            \
             _Py_CHECK_REFCNT(op)                        \
         else                                            \
         _Py_Dealloc((PyObject *)(op));                  \
-    } while (0)
+    }} while (0)
 
 /* Safely decref `op` and set `op` to NULL, especially useful in tp_clear
  * and tp_dealloc implementatons.

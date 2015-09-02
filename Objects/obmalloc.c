@@ -548,6 +548,15 @@ static size_t ntimes_arena_allocated = 0;
 static size_t narenas_highwater = 0;
 #endif
 
+void *_PyMem_PinnedBase = NULL;
+void *_PyMem_PinnedEnd = NULL;
+int _PyMem_PinState = PyMem_PIN_NONE;
+
+void *_PyMem_ContiguousAllocationBase = NULL;
+size_t _PyMem_ContiguousAllocationSize = 0;
+size_t _PyMem_ContiguousAllocationFree = 0;
+int PyMem_ContiguousAllocationFallback = 0;
+
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
  * allocate a new arena, and return the address of an arena_object
  * describing the new arena.  It's expected that the caller will set
@@ -558,7 +567,7 @@ new_arena(void)
 {
     struct arena_object* arenaobj;
     uint excess;        /* number of bytes above pool alignment */
-    void *address;
+    void *address = NULL;
     int err;
 
 #ifdef PYMALLOC_DEBUG
@@ -613,10 +622,37 @@ new_arena(void)
     unused_arena_objects = arenaobj->nextarena;
     assert(arenaobj->address == 0);
 #ifdef ARENAS_USE_MMAP
-    address = mmap(NULL, ARENA_SIZE, PROT_READ|PROT_WRITE,
-                   MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    if (_PyMem_ContiguousAllocationBase != NULL) {
+        if (_PyMem_ContiguousAllocationFree >= ARENA_SIZE) {
+            address = _PyMem_ContiguousAllocationBase + _PyMem_ContiguousAllocationSize;
+            _PyMem_ContiguousAllocationSize += ARENA_SIZE;
+            _PyMem_ContiguousAllocationFree -= ARENA_SIZE;
+        }
+        else {
+            address = mremap(_PyMem_ContiguousAllocationBase,
+                             _PyMem_ContiguousAllocationSize,
+                             _PyMem_ContiguousAllocationSize + ARENA_SIZE, 0);
+            if (address == MAP_FAILED) {
+                if (!_PyMem_ContiguousAllocationFallback)
+                    return NULL;
+                else {
+                    _PyMem_ContiguousAllocationBase = NULL;
+                    _PyMem_ContiguousAllocationSize = 0;
+                    _PyMem_ContiguousAllocationFree = 0;
+                    address = NULL;
+                }
+            }
+            else
+                _PyMem_ContiguousAllocationSize += ARENA_SIZE;
+        }
+    }
+    if (address == NULL)
+        address = mmap(NULL, ARENA_SIZE, PROT_READ|PROT_WRITE,
+                       MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     err = (address == MAP_FAILED);
 #else
+    if (_PyMem_ContiguousAllocationBase != NULL)
+        return NULL;
     address = malloc(ARENA_SIZE);
     err = (address == 0);
 #endif    
@@ -1004,6 +1040,9 @@ PyObject_Free(void *p)
     if (p == NULL)      /* free(NULL) has no effect */
         return;
 
+    if (_PyMem_PinState == PyMem_PIN_PINNED && Py_PINNED(p))
+        return;
+
 #ifdef WITH_VALGRIND
     if (UNLIKELY(running_on_valgrind > 0))
         goto redirect;
@@ -1065,6 +1104,14 @@ PyObject_Free(void *p)
              * 4. Else there's nothing more to do.
              */
             if (nf == ao->ntotalpools) {
+                /*
+                FIXME
+                if (Py_FROZEN(oo->address)
+                    _PyMem_ContiguousAllocationBase
+                    if in middle unlock return
+                    if at end shrink and update size
+                */
+
                 /* Case 1.  First unlink ao from usable_arenas.
                  */
                 assert(ao->prevarena == NULL ||
@@ -1935,3 +1982,47 @@ Py_ADDRESS_IN_RANGE(void *P, poolp pool)
            arenas[arenaindex_temp].address != 0;
 }
 #endif
+
+void *_PyMem_usedpools_addr = &usedpools;
+void *_PyMem_maxarenas_addr = &maxarenas;
+void *_PyMem_arenas_addr = &arenas;
+void *_PyMem_unused_arena_objects_addr = &unused_arena_objects;
+void *_PyMem_usable_arenas_addr = &usable_arenas;
+void *_PyMem_narenas_currently_allocated_addr = &narenas_currently_allocated;
+int _PyMem_ARENAS_USE_MMAP =
+#ifdef ARENAS_USE_MMAP
+1
+#else
+0
+#endif
+;
+
+void
+_PyMem_SetupContiguousAllocation(size_t pinreserve)
+{
+    void *address;
+#ifndef ARENAS_USE_MMAP
+    Py_FatalError(
+        "pinning not supported");
+#else
+    if (_PyMem_PinState != PyMem_PIN_NONE || _PyMem_ContiguousAllocationBase != NULL)
+        Py_FatalError(
+            "invalid state");
+    _PyMem_PinState = PyMem_PIN_READY;
+    if (pinreserve > 0) {
+        address = mmap(NULL, ARENA_SIZE, PROT_READ|PROT_WRITE,
+                    MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+        _PyMem_ContiguousAllocationBase = address;
+        _PyMem_ContiguousAllocationFree = pinreserve;
+    }
+    else {
+        address = mmap(NULL, 0x1000, PROT_READ|PROT_WRITE,
+                    MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+        munmap(address, 0x1000);
+        _PyMem_ContiguousAllocationBase = address;
+    }
+    if (address == MAP_FAILED)
+        Py_FatalError(
+            "not enough memory for pinreserve");
+#endif
+}

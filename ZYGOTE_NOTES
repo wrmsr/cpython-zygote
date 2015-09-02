@@ -1,0 +1,26 @@
+- compiler switchable branch liklihood bias
+- switchable deallocation modes: call dtor or dont
+- todo freelists 
+- https://code.google.com/p/chromium/wiki/LinuxZygote
+- https://stackoverflow.com/questions/2731531/faster-forking-of-large-processes-on-linux
+- prealloc
+- l3 sharing
+- ymz
+- op->p
+- page analyzer
+- pre-toucher / ideally modify page flags to let it happen naturally in fork()
+- /proc smaps + pagemap
+- https://www.kernel.org/doc/Documentation/vm/pagemap.txt
+- graceful fallback cfg'd in py, already available in ctypes.pythonapi
+- mallocstat can tell which arenas are pinned in py
+- port Py_PINNED to py
+- track parent [well, root really] pid in zygote, pagemaps can tell which were hit
+
+* Bits 0-54  page frame number (PFN) if present
+* Bits 0-4   swap type if swapped
+* Bits 5-54  swap offset if swapped
+* Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
+* Bits 56-60 zero
+* Bit  61    page is file-page or shared-anon
+* Bit  62    page swapped
+* Bit  63    page present
