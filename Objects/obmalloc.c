@@ -555,7 +555,7 @@ int _PyMem_PinState = PyMem_PIN_NONE;
 void *_PyMem_ContiguousAllocationBase = NULL;
 size_t _PyMem_ContiguousAllocationSize = 0;
 size_t _PyMem_ContiguousAllocationFree = 0;
-int PyMem_ContiguousAllocationFallback = 0;
+int _PyMem_ContiguousAllocationFallback = 0;
 
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
  * allocate a new arena, and return the address of an arena_object
