@@ -765,7 +765,7 @@ PyAPI_FUNC(void) _Py_AddToAllObjects(PyObject *, int force);
 #endif /* !Py_TRACE_REFS */
 
 #define Py_PINNED(p)                           \
-    ((void *) p >= (void *) _PyMem_PinnedBase && (void *) p < (void *) _PyMem_PinnedEnd)
+    ((void *) p >= _PyMem_PinnedBase && (void *) p < _PyMem_PinnedEnd)
 
 #define Py_INCREF(op) (                         \
     _Py_INC_REFTOTAL  _Py_REF_DEBUG_COMMA       \
