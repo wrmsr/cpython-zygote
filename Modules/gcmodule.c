@@ -1106,7 +1106,7 @@ PyDoc_STRVAR(gc_pin__doc__,
 static PyObject *
 gc_pin(PyObject *self, PyObject *noargs)
 {
-    if (_PyMem_PinState != PyMem_PIN_READY) {
+    if (_PyMem_ContiguousBase == NULL) {
         PyErr_SetString(PyExc_EnvironmentError, "not ready to pin");
         return NULL;
     }

@@ -52,20 +52,14 @@ extern "C" {
 PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 PyAPI_FUNC(void *) PyMem_Realloc(void *, size_t);
 PyAPI_FUNC(void) PyMem_Free(void *);
-PyAPI_FUNC(void) _PyMem_SetupContiguousAllocation(size_t pinreserve);
+PyAPI_FUNC(void) _PyMem_SetupContiguousAllocation(size_t narenas);
 PyAPI_DATA(int) _PyMem_ContiguousAllocationFallback;
 
 PyAPI_DATA(void *) _PyMem_ContiguousBase;
-PyAPI_DATA(size_t) _PyMem_ContiguousUsed;
-PyAPI_DATA(size_t) _PyMem_ContiguousFree;
+PyAPI_DATA(size_t) _PyMem_ContiguousEnd;
 
 PyAPI_DATA(void *) _PyMem_PinnedBase;
 PyAPI_DATA(void *) _PyMem_PinnedEnd;
-PyAPI_DATA(int) _PyMem_PinState;
-
-#define PyMem_PIN_NONE   0
-#define PyMem_PIN_READY  1
-#define PyMem_PIN_PINNED 2
 
 PyAPI_DATA(void *) _PyMem_usedpools_addr;
 PyAPI_DATA(void *) _PyMem_maxarenas_addr;

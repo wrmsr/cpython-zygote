@@ -101,7 +101,7 @@ static int running_on_valgrind = -1;
  *
  * For small requests, the allocator sub-allocates <Big> blocks of memory.
  * Requests greater than SMALL_REQUEST_THRESHOLD bytes are routed to the
- * system's allocator. 
+ * system's allocator.
  *
  * Small requests are grouped in size classes spaced 8 bytes apart, due
  * to the required valid alignment of the returned address. Requests of
@@ -134,7 +134,7 @@ static int running_on_valgrind = -1;
  *       65-72                   72                       8
  *        ...                   ...                     ...
  *      497-504                 504                      62
- *      505-512                 512                      63 
+ *      505-512                 512                      63
  *
  *      0, SMALL_REQUEST_THRESHOLD + 1 and up: routed to the underlying
  *      allocator.
@@ -176,7 +176,7 @@ static int running_on_valgrind = -1;
  * Although not required, for better performance and space efficiency,
  * it is recommended that SMALL_REQUEST_THRESHOLD is set to a power of 2.
  */
-#define SMALL_REQUEST_THRESHOLD 512 
+#define SMALL_REQUEST_THRESHOLD 512
 #define NB_SMALL_SIZE_CLASSES   (SMALL_REQUEST_THRESHOLD / ALIGNMENT)
 
 /*
@@ -209,7 +209,7 @@ static int running_on_valgrind = -1;
  * usually an address range reservation for <Big> bytes, unless all pages within
  * this space are referenced subsequently. So malloc'ing big blocks and not
  * using them does not mean "wasting memory". It's an addressable range
- * wastage... 
+ * wastage...
  *
  * Arenas are allocated with mmap() on systems supporting anonymous memory
  * mappings to reduce heap fragmentation.
@@ -550,12 +550,17 @@ static size_t narenas_highwater = 0;
 
 void *_PyMem_PinnedBase = NULL;
 void *_PyMem_PinnedEnd = NULL;
-int _PyMem_PinState = PyMem_PIN_NONE;
 
 void *_PyMem_ContiguousBase = NULL;
-size_t _PyMem_ContiguousUsed = 0;
-size_t _PyMem_ContiguousFree = 0;
+void *_PyMem_ContiguousEnd = NULL;
 int _PyMem_ContiguousAllocationFallback = 0;
+
+struct arena_placeholder {
+    arena_placeholder *next;
+    char padding[ARENA_SIZE - sizeof(arena_placeholder)];
+};
+
+static arena_placeholder *contiguous_head = NULL;
 
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
  * allocate a new arena, and return the address of an arena_object
@@ -623,28 +628,13 @@ new_arena(void)
     assert(arenaobj->address == 0);
 #ifdef ARENAS_USE_MMAP
     if (_PyMem_ContiguousBase != NULL) {
-        if (_PyMem_ContiguousFree >= ARENA_SIZE) {
-            address = _PyMem_ContiguousBase + _PyMem_ContiguousUsed;
-            _PyMem_ContiguousUsed += ARENA_SIZE;
-            _PyMem_ContiguousFree -= ARENA_SIZE;
-        }
-        else {
-            address = mremap(_PyMem_ContiguousBase,
-                             _PyMem_ContiguousUsed + _PyMem_ContiguousFree,
-                             _PyMem_ContiguousUsed + _PyMem_ContiguousFree + ARENA_SIZE, 0);
-            if (address == MAP_FAILED) {
-                if (!_PyMem_ContiguousAllocationFallback)
-                    return NULL;
-                else {
-                    // FIXME: warn
-                    _PyMem_ContiguousBase = NULL;
-                    _PyMem_ContiguousUsed = 0;
-                    _PyMem_ContiguousFree = 0;
-                    address = NULL;
-                }
+        address = acquire_contiguous_arena();
+        if (address == NULL) {
+            if (!_PyMem_ContiguousAllocationFallback)
+                return NULL;
+            else {
+                // FIXME: warn
             }
-            else
-                _PyMem_ContiguousUsed += ARENA_SIZE;
         }
     }
     if (address == NULL)
@@ -656,7 +646,7 @@ new_arena(void)
         return NULL;
     address = malloc(ARENA_SIZE);
     err = (address == 0);
-#endif    
+#endif
     if (err) {
         /* The allocation failed: return NULL after putting the
          * arenaobj back.
@@ -687,6 +677,34 @@ new_arena(void)
     arenaobj->ntotalpools = arenaobj->nfreepools;
 
     return arenaobj;
+}
+
+void *
+acquire_contiguous_arena()
+{
+    arena_placeholder *cur = contiguous_head;
+    arena_placeholder *prev = NULL;
+    arena_placeholder *winner = NULL;
+    arena_placeholder *winner_prev = NULL;
+
+    while (cur != NULL) {
+        if (cur < winner) {
+            winner = cur;
+            winner_prev = prev;
+        }
+        prev = cur;
+        cur = cur->next;
+    }
+
+    if (winner == NULL)
+        return NULL;
+
+    if (winner_prev == NULL)
+        contiguous_head = (void *) *winner;
+    else
+        *winner_prev = (void *) *winner;
+
+    return (void *) winner;
 }
 
 /*
@@ -1999,31 +2017,27 @@ int _PyMem_ARENAS_USE_MMAP =
 ;
 
 void
-_PyMem_SetupContiguousAllocation(size_t pinreserve)
+_PyMem_SetupContiguousAllocation(size_t narenas)
 {
+    // FIXME: bytes
+    int i;
     void *address;
+
 #ifndef ARENAS_USE_MMAP
     Py_FatalError(
         "pinning not supported");
 #else
-    if (_PyMem_PinState != PyMem_PIN_NONE || _PyMem_ContiguousBase != NULL || _PyMem_ContiguousBase != 0)
-        Py_FatalError(
-            "invalid state");
-    _PyMem_PinState = PyMem_PIN_READY;
-    if (pinreserve > 0) {
-        address = mmap(NULL, ARENA_SIZE, PROT_READ|PROT_WRITE,
-                    MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-        _PyMem_ContiguousBase = address;
-        _PyMem_ContiguousFree = pinreserve;
-    }
-    else {
-        address = mmap(NULL, 0x1000, PROT_READ|PROT_WRITE,
-                    MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-        munmap(address, 0x1000);
-        _PyMem_ContiguousBase = address;
-    }
+
+    address = mmap(NULL, narenas * ARENA_SIZE, PROT_READ|PROT_WRITE,
+                MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+
     if (address == MAP_FAILED)
         Py_FatalError(
-            "not enough memory for pinreserve");
+            "not enough memory for reserve");
+
+    contiguous_head = (arena_placeholder *) address;
+    for (i = 0; i < (narenas - 1); ++i) {
+        contiguous_head[i].next = &contiguous_head[i + 1];
+
 #endif
 }
