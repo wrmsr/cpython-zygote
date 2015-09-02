@@ -2006,21 +2006,21 @@ _PyMem_SetupContiguousAllocation(size_t pinreserve)
     Py_FatalError(
         "pinning not supported");
 #else
-    if (_PyMem_PinState != PyMem_PIN_NONE || _PyMem_ContiguousAllocationBase != NULL)
+    if (_PyMem_PinState != PyMem_PIN_NONE || _PyMem_ContiguousBase != NULL || _PyMem_ContiguousBase != 0)
         Py_FatalError(
             "invalid state");
     _PyMem_PinState = PyMem_PIN_READY;
     if (pinreserve > 0) {
         address = mmap(NULL, ARENA_SIZE, PROT_READ|PROT_WRITE,
                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-        _PyMem_ContiguousAllocationBase = address;
-        _PyMem_ContiguousAllocationFree = pinreserve;
+        _PyMem_ContiguousBase = address;
+        _PyMem_ContiguousFree = pinreserve;
     }
     else {
         address = mmap(NULL, 0x1000, PROT_READ|PROT_WRITE,
                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         munmap(address, 0x1000);
-        _PyMem_ContiguousAllocationBase = address;
+        _PyMem_ContiguousBase = address;
     }
     if (address == MAP_FAILED)
         Py_FatalError(

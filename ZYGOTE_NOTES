@@ -18,6 +18,7 @@
 - ... only things allocated are arenas, maintain freelist
  - sort and shrink
   - naw just double LL, choose least
+- pinstate to just a bool? can pin if contig?
 
 * Bits 0-54  page frame number (PFN) if present
 * Bits 0-4   swap type if swapped
