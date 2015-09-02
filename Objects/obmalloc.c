@@ -2029,6 +2029,7 @@ _PyMem_SetupContiguousAllocation(size_t narenas)
         "pinning not supported");
 #else
 
+    assert(sizeof(arena_placeholder) == ARENA_SIZE);
     address = mmap(NULL, narenas * ARENA_SIZE, PROT_READ|PROT_WRITE,
                 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 
