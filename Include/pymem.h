@@ -75,8 +75,9 @@ PyAPI_DATA(void *) _PyMem_usable_arenas_addr;
 PyAPI_DATA(void *) _PyMem_narenas_currently_allocated_addr;
 PyAPI_DATA(int) _PyMem_ARENAS_USE_MMAP;
 
-#define Py_CONTIGUOUS(p)                           \
-    ((void *) p >= (void *) _PyMem_ContiguousBase && (void *) p < (void *) (_PyMem_ContiguousBase + _PyMem_ContiguousUsed + _PyMem_ContiguousFree)
+#define Py_CONTIGUOUS(p)                             \
+    ((void *) p >= (void *) _PyMem_ContiguousBase && \
+     (void *) p < (void *) (_PyMem_ContiguousBase + _PyMem_ContiguousUsed + _PyMem_ContiguousFree))
 
 /* Starting from Python 1.6, the wrappers Py_{Malloc,Realloc,Free} are
    no longer supported. They used to call PyErr_NoMemory() on failure. */

@@ -17,6 +17,7 @@
 - track parent [well, root really] pid in zygote, pagemaps can tell which were hit
 - ... only things allocated are arenas, maintain freelist
  - sort and shrink
+  - naw just double LL, choose least
 
 * Bits 0-54  page frame number (PFN) if present
 * Bits 0-4   swap type if swapped

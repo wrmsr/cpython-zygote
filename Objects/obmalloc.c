@@ -1105,7 +1105,7 @@ PyObject_Free(void *p)
              * 4. Else there's nothing more to do.
              */
             if (nf == ao->ntotalpools) {
-                if (Py_CONTIGUOUS(oo->address) {
+                if (Py_CONTIGUOUS(ao->address) {
                     // _PyMem_ContiguousBase
                     // if in middle unlock return
                     // if at end shrink and update size
