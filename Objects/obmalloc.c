@@ -562,6 +562,33 @@ struct arena_placeholder {
 
 static struct arena_placeholder *contiguous_head = NULL;
 
+void
+_PyMem_SetupContiguousAllocation(size_t narenas)
+{
+    // FIXME: bytes
+    int i;
+    void *address;
+
+#ifndef ARENAS_USE_MMAP
+    Py_FatalError(
+        "contiguous allocation not supported");
+#else
+
+    assert(sizeof(arena_placeholder) == ARENA_SIZE);
+    address = mmap(NULL, narenas * ARENA_SIZE, PROT_READ|PROT_WRITE,
+                MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+
+    if (address == MAP_FAILED)
+        Py_FatalError(
+            "not enough memory for reserve");
+
+    contiguous_head = (arena_placeholder *) address;
+    for (i = 0; i < (narenas - 1); ++i) {
+        contiguous_head[i].next = &contiguous_head[i + 1];
+
+#endif
+}
+
 void *
 acquire_contiguous_arena(void)
 {
@@ -2016,30 +2043,3 @@ int _PyMem_ARENAS_USE_MMAP =
 0
 #endif
 ;
-
-void
-_PyMem_SetupContiguousAllocation(size_t narenas)
-{
-    // FIXME: bytes
-    int i;
-    void *address;
-
-#ifndef ARENAS_USE_MMAP
-    Py_FatalError(
-        "pinning not supported");
-#else
-
-    assert(sizeof(arena_placeholder) == ARENA_SIZE);
-    address = mmap(NULL, narenas * ARENA_SIZE, PROT_READ|PROT_WRITE,
-                MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-
-    if (address == MAP_FAILED)
-        Py_FatalError(
-            "not enough memory for reserve");
-
-    contiguous_head = (arena_placeholder *) address;
-    for (i = 0; i < (narenas - 1); ++i) {
-        contiguous_head[i].next = &contiguous_head[i + 1];
-
-#endif
-}
