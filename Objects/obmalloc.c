@@ -563,12 +563,12 @@ struct arena_placeholder {
 static struct arena_placeholder *contiguous_head = NULL;
 
 void *
-acquire_contiguous_arena()
+acquire_contiguous_arena(void)
 {
-    arena_placeholder *cur = contiguous_head;
-    arena_placeholder *prev = NULL;
-    arena_placeholder *winner = NULL;
-    arena_placeholder *winner_prev = NULL;
+    struct arena_placeholder *cur = contiguous_head;
+    struct arena_placeholder *prev = NULL;
+    struct arena_placeholder *winner = NULL;
+    struct arena_placeholder *winner_prev = NULL;
 
     while (cur != NULL) {
         if (cur < winner) {
