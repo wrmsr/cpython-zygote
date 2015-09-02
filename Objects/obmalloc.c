@@ -583,9 +583,9 @@ acquire_contiguous_arena(void)
         return NULL;
 
     if (winner_prev == NULL)
-        contiguous_head = (void *) *winner;
+        contiguous_head = winner->next;
     else
-        *winner_prev = (void *) *winner;
+        winner_prev->next = winner->next;
 
     return (void *) winner;
 }
