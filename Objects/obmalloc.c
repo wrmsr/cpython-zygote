@@ -1060,7 +1060,7 @@ PyObject_Free(void *p)
     if (p == NULL)      /* free(NULL) has no effect */
         return;
 
-    if (_PyMem_PinState == PyMem_PIN_PINNED && Py_PINNED(p))
+    if (Py_PINNED(p))
         return;
 
 #ifdef WITH_VALGRIND
