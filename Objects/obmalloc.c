@@ -630,8 +630,8 @@ new_arena(void)
         }
         else {
             address = mremap(_PyMem_ContiguousBase,
-                             _PyMem_ContiguousUsed,
-                             _PyMem_ContiguousUsed + ARENA_SIZE, 0);
+                             _PyMem_ContiguousUsed + _PyMem_ContiguousFree,
+                             _PyMem_ContiguousUsed + _PyMem_ContiguousFree + ARENA_SIZE, 0);
             if (address == MAP_FAILED) {
                 if (!_PyMem_ContiguousAllocationFallback)
                     return NULL;
