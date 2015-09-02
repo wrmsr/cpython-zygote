@@ -557,7 +557,7 @@ int _PyMem_ContiguousAllocationFallback = 0;
 
 struct arena_placeholder {
     struct arena_placeholder *next;
-    char padding[ARENA_SIZE - sizeof(arena_placeholder)];
+    char padding[ARENA_SIZE - sizeof(arena_placeholder *)];
 };
 
 static struct arena_placeholder *contiguous_head = NULL;
