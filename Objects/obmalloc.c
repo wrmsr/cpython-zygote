@@ -1083,6 +1083,7 @@ PyObject_Free(void *p)
 #ifndef Py_USING_MEMORY_DEBUGGER
     uint arenaindex_temp;
 #endif
+    struct arena_placeholder *ap;
 
     if (p == NULL)      /* free(NULL) has no effect */
         return;
@@ -1152,10 +1153,9 @@ PyObject_Free(void *p)
              */
             if (nf == ao->ntotalpools) {
                 if (Py_CONTIGUOUS(ao->address)) {
-                    // _PyMem_ContiguousBase
-                    // if in middle unlock return
-                    // if at end shrink and update size
-                    // FIXME lol
+                    ap = (struct arena_placeholder *) ao->address;
+                    ap->next = contiguous_head;
+                    contiguous_head = ap;
                     return;
                 }
 
