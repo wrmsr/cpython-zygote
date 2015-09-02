@@ -15,6 +15,7 @@
 - mallocstat can tell which arenas are pinned in py
 - port Py_PINNED to py
 - track parent [well, root really] pid in zygote, pagemaps can tell which were hit
+- ... only things allocated are arenas, maintain freelist
 
 * Bits 0-54  page frame number (PFN) if present
 * Bits 0-4   swap type if swapped

@@ -552,9 +552,9 @@ void *_PyMem_PinnedBase = NULL;
 void *_PyMem_PinnedEnd = NULL;
 int _PyMem_PinState = PyMem_PIN_NONE;
 
-void *_PyMem_ContiguousAllocationBase = NULL;
-size_t _PyMem_ContiguousAllocationSize = 0;
-size_t _PyMem_ContiguousAllocationFree = 0;
+void *_PyMem_ContiguousBase = NULL;
+size_t _PyMem_ContiguousUsed = 0;
+size_t _PyMem_ContiguousFree = 0;
 int _PyMem_ContiguousAllocationFallback = 0;
 
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
@@ -622,28 +622,29 @@ new_arena(void)
     unused_arena_objects = arenaobj->nextarena;
     assert(arenaobj->address == 0);
 #ifdef ARENAS_USE_MMAP
-    if (_PyMem_ContiguousAllocationBase != NULL) {
-        if (_PyMem_ContiguousAllocationFree >= ARENA_SIZE) {
-            address = _PyMem_ContiguousAllocationBase + _PyMem_ContiguousAllocationSize;
-            _PyMem_ContiguousAllocationSize += ARENA_SIZE;
-            _PyMem_ContiguousAllocationFree -= ARENA_SIZE;
+    if (_PyMem_ContiguousBase != NULL) {
+        if (_PyMem_ContiguousFree >= ARENA_SIZE) {
+            address = _PyMem_ContiguousBase + _PyMem_ContiguousUsed;
+            _PyMem_ContiguousUsed += ARENA_SIZE;
+            _PyMem_ContiguousFree -= ARENA_SIZE;
         }
         else {
-            address = mremap(_PyMem_ContiguousAllocationBase,
-                             _PyMem_ContiguousAllocationSize,
-                             _PyMem_ContiguousAllocationSize + ARENA_SIZE, 0);
+            address = mremap(_PyMem_ContiguousBase,
+                             _PyMem_ContiguousUsed,
+                             _PyMem_ContiguousUsed + ARENA_SIZE, 0);
             if (address == MAP_FAILED) {
                 if (!_PyMem_ContiguousAllocationFallback)
                     return NULL;
                 else {
-                    _PyMem_ContiguousAllocationBase = NULL;
-                    _PyMem_ContiguousAllocationSize = 0;
-                    _PyMem_ContiguousAllocationFree = 0;
+                    // FIXME: warn
+                    _PyMem_ContiguousBase = NULL;
+                    _PyMem_ContiguousUsed = 0;
+                    _PyMem_ContiguousFree = 0;
                     address = NULL;
                 }
             }
             else
-                _PyMem_ContiguousAllocationSize += ARENA_SIZE;
+                _PyMem_ContiguousUsed += ARENA_SIZE;
         }
     }
     if (address == NULL)
@@ -651,7 +652,7 @@ new_arena(void)
                        MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     err = (address == MAP_FAILED);
 #else
-    if (_PyMem_ContiguousAllocationBase != NULL)
+    if (_PyMem_ContiguousBase != NULL)
         return NULL;
     address = malloc(ARENA_SIZE);
     err = (address == 0);
@@ -1104,13 +1105,13 @@ PyObject_Free(void *p)
              * 4. Else there's nothing more to do.
              */
             if (nf == ao->ntotalpools) {
-                /*
-                FIXME
-                if (Py_FROZEN(oo->address)
-                    _PyMem_ContiguousAllocationBase
-                    if in middle unlock return
-                    if at end shrink and update size
-                */
+                if (Py_CONTIGUOUS(oo->address) {
+                    // _PyMem_ContiguousBase
+                    // if in middle unlock return
+                    // if at end shrink and update size
+                    // FIXME lol
+                    return;
+                }
 
                 /* Case 1.  First unlink ao from usable_arenas.
                  */

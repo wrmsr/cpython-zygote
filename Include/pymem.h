@@ -53,11 +53,11 @@ PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 PyAPI_FUNC(void *) PyMem_Realloc(void *, size_t);
 PyAPI_FUNC(void) PyMem_Free(void *);
 PyAPI_FUNC(void) _PyMem_SetupContiguousAllocation(size_t pinreserve);
-
-PyAPI_DATA(void *) _PyMem_ContiguousAllocationBase;
-PyAPI_DATA(size_t) _PyMem_ContiguousAllocationSize;
-PyAPI_DATA(size_t) _PyMem_ContiguousAllocationFree;
 PyAPI_DATA(int) _PyMem_ContiguousAllocationFallback;
+
+PyAPI_DATA(void *) _PyMem_ContiguousBase;
+PyAPI_DATA(size_t) _PyMem_ContiguousUsed;
+PyAPI_DATA(size_t) _PyMem_ContiguousFree;
 
 PyAPI_DATA(void *) _PyMem_PinnedBase;
 PyAPI_DATA(void *) _PyMem_PinnedEnd;
@@ -74,6 +74,9 @@ PyAPI_DATA(void *) _PyMem_unused_arena_objects_addr;
 PyAPI_DATA(void *) _PyMem_usable_arenas_addr;
 PyAPI_DATA(void *) _PyMem_narenas_currently_allocated_addr;
 PyAPI_DATA(int) _PyMem_ARENAS_USE_MMAP;
+
+#define Py_CONTIGUOUS(p)                           \
+    ((void *) p >= (void *) _PyMem_ContiguousBase && (void *) p < (void *) (_PyMem_ContiguousBase + _PyMem_ContiguousUsed + _PyMem_ContiguousFree)
 
 /* Starting from Python 1.6, the wrappers Py_{Malloc,Realloc,Free} are
    no longer supported. They used to call PyErr_NoMemory() on failure. */
