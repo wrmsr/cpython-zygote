@@ -557,10 +557,38 @@ int _PyMem_ContiguousAllocationFallback = 0;
 
 struct arena_placeholder {
     struct arena_placeholder *next;
-    char padding[ARENA_SIZE - sizeof(arena_placeholder *)];
+    char padding[ARENA_SIZE - sizeof(void *)];
 };
 
 static struct arena_placeholder *contiguous_head = NULL;
+
+void *
+acquire_contiguous_arena()
+{
+    arena_placeholder *cur = contiguous_head;
+    arena_placeholder *prev = NULL;
+    arena_placeholder *winner = NULL;
+    arena_placeholder *winner_prev = NULL;
+
+    while (cur != NULL) {
+        if (cur < winner) {
+            winner = cur;
+            winner_prev = prev;
+        }
+        prev = cur;
+        cur = cur->next;
+    }
+
+    if (winner == NULL)
+        return NULL;
+
+    if (winner_prev == NULL)
+        contiguous_head = (void *) *winner;
+    else
+        *winner_prev = (void *) *winner;
+
+    return (void *) winner;
+}
 
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
  * allocate a new arena, and return the address of an arena_object
@@ -677,34 +705,6 @@ new_arena(void)
     arenaobj->ntotalpools = arenaobj->nfreepools;
 
     return arenaobj;
-}
-
-void *
-acquire_contiguous_arena()
-{
-    arena_placeholder *cur = contiguous_head;
-    arena_placeholder *prev = NULL;
-    arena_placeholder *winner = NULL;
-    arena_placeholder *winner_prev = NULL;
-
-    while (cur != NULL) {
-        if (cur < winner) {
-            winner = cur;
-            winner_prev = prev;
-        }
-        prev = cur;
-        cur = cur->next;
-    }
-
-    if (winner == NULL)
-        return NULL;
-
-    if (winner_prev == NULL)
-        contiguous_head = (void *) *winner;
-    else
-        *winner_prev = (void *) *winner;
-
-    return (void *) winner;
 }
 
 /*
