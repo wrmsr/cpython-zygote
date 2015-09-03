@@ -68,7 +68,7 @@ MAKESETUP=      $(srcdir)/Modules/makesetup
 # Compiler options
 OPT=		@OPT@
 BASECFLAGS=	@BASECFLAGS@
-CFLAGS=		$(BASECFLAGS) @CFLAGS@ $(OPT) $(EXTRA_CFLAGS) -std=gnu99 -funroll-loops -D_REENTRANT -pipe -D_GNU_SOURCE
+CFLAGS=		$(BASECFLAGS) @CFLAGS@ $(OPT) $(EXTRA_CFLAGS) -std=gnu99 -funroll-loops -D_REENTRANT -pipe -D_GNU_SOURCE -fvisibility=hidden 
 # Both CPPFLAGS and LDFLAGS need to contain the shell's value for setup.py to
 # be able to build extension modules using the directories specified in the
 # environment variables
@@ -301,6 +301,19 @@ ASDLGEN=	$(srcdir)/Parser/asdl_c.py
 ##########################################################################
 # jemalloc
 
+JEMALLOC_PLATFORM_OBJS=
+ifeq ($(OS),Windows_NT)
+    # pass
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        # pass
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        JEMALLOC_PLATFORM_OBJS += jemalloc/src/zone.o
+    endif
+endif
+
 JEMALLOC_OBJS=  \
     jemalloc/src/jemalloc.o \
     jemalloc/src/arena.o \
@@ -325,7 +338,7 @@ JEMALLOC_OBJS=  \
     jemalloc/src/tcache.o \
     jemalloc/src/util.o \
     jemalloc/src/tsd.o \
-    jemalloc/src/zone.o
+    $(JEMALLOC_PLATFORM_OBJS)
 
 
 ##########################################################################
