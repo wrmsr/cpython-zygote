@@ -234,42 +234,42 @@ GRAMMAR_INPUT=	$(srcdir)/Grammar/Grammar
 
 JEMALLOC_PLATFORM_OBJS=
 ifeq ($(OS),Windows_NT)
-    # pass
+	# pass
 else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Linux)
-        # pass
-    endif
-    ifeq ($(UNAME_S),Darwin)
-        JEMALLOC_PLATFORM_OBJS += jemalloc/src/zone.o
-    endif
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Linux)
+		# pass
+	endif
+	ifeq ($(UNAME_S),Darwin)
+		JEMALLOC_PLATFORM_OBJS += jemalloc/src/zone.o
+	endif
 endif
 
 JEMALLOC_OBJS=  \
-    jemalloc/src/jemalloc.o \
-    jemalloc/src/arena.o \
-    jemalloc/src/atomic.o \
-    jemalloc/src/base.o \
-    jemalloc/src/bitmap.o \
-    jemalloc/src/chunk.o \
-    jemalloc/src/chunk_dss.o \
-    jemalloc/src/chunk_mmap.o \
-    jemalloc/src/ckh.o \
-    jemalloc/src/ctl.o \
-    jemalloc/src/extent.o \
-    jemalloc/src/hash.o \
-    jemalloc/src/huge.o \
-    jemalloc/src/mb.o \
-    jemalloc/src/mutex.o \
-    jemalloc/src/pages.o \
-    jemalloc/src/prof.o \
-    jemalloc/src/quarantine.o \
-    jemalloc/src/rtree.o \
-    jemalloc/src/stats.o \
-    jemalloc/src/tcache.o \
-    jemalloc/src/util.o \
-    jemalloc/src/tsd.o \
-    $(JEMALLOC_PLATFORM_OBJS)
+	jemalloc/src/jemalloc.o \
+	jemalloc/src/arena.o \
+	jemalloc/src/atomic.o \
+	jemalloc/src/base.o \
+	jemalloc/src/bitmap.o \
+	jemalloc/src/chunk.o \
+	jemalloc/src/chunk_dss.o \
+	jemalloc/src/chunk_mmap.o \
+	jemalloc/src/ckh.o \
+	jemalloc/src/ctl.o \
+	jemalloc/src/extent.o \
+	jemalloc/src/hash.o \
+	jemalloc/src/huge.o \
+	jemalloc/src/mb.o \
+	jemalloc/src/mutex.o \
+	jemalloc/src/pages.o \
+	jemalloc/src/prof.o \
+	jemalloc/src/quarantine.o \
+	jemalloc/src/rtree.o \
+	jemalloc/src/stats.o \
+	jemalloc/src/tcache.o \
+	jemalloc/src/util.o \
+	jemalloc/src/tsd.o \
+	$(JEMALLOC_PLATFORM_OBJS)
 
 
 LIBFFI_INCLUDEDIR=	@LIBFFI_INCLUDEDIR@
@@ -303,7 +303,7 @@ POBJS=		\
 		Parser/firstsets.o \
 		Parser/grammar.o \
 		Parser/pgen.o \
-        $(JEMALLOC_OBJS)
+		$(JEMALLOC_OBJS)
 
 PARSER_OBJS=	$(POBJS) Parser/myreadline.o Parser/tokenizer.o
 
@@ -391,7 +391,7 @@ PYTHON_OBJS=	\
 		$(LIBOBJS) \
 		$(MACHDEP_OBJS) \
 		$(THREADOBJ) \
-        $(JEMALLOC_OBJS)
+		$(JEMALLOC_OBJS)
 
 
 ##########################################################################
