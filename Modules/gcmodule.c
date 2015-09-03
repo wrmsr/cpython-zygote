@@ -25,14 +25,14 @@
 #define AS_GC(o) (Py_PINNED(o) ? *((PyGC_Head **) ((PyGC_Head *)(o)-1)) : (PyGC_Head *)(o)-1)
 
 /* Get the object given the GC head */
-#define FROM_GC(g) (Py_PINNED_GC(g) ? ((PyGC_PinnedHead *)g)->object)) : (PyObject *)(((PyGC_Head *)g)+1))
+#define FROM_GC(g) (Py_PINNED_GC(g) ? ((PyGC_PinnedHead *)g)->object : (PyObject *)(((PyGC_Head *)g)+1))
 
 PyGC_PinnedHead *_PyGC_PinnedHeadBase = NULL;
 PyGC_PinnedHead *_PyGC_PinnedHeadEnd = NULL;
 
 struct pinned_gc_head_placeholder {
     PyGC_PinnedHead *gc;
-    char padding[sizeof(struct PyGC_Head) - sizeof(void *)];
+    char padding[sizeof(PyGC_Head) - sizeof(void *)];
 };
 
 /*** Global GC state ***/

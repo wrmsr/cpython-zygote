@@ -254,7 +254,6 @@ Py_Main(int argc, char **argv)
     int saw_unbuffered_flag = 0;
     PyCompilerFlags cf;
     long pinreserve = -1;
-    void *address;
 
     cf.cf_flags = 0;
 

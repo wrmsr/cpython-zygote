@@ -269,7 +269,7 @@ extern PyGC_PinnedHead *_PyGC_PinnedHeadBase;
 extern PyGC_PinnedHead *_PyGC_PinnedHeadEnd;
 
 #define Py_PINNED_GC(p)                         \
-    ((void *) p >= _PyMem_PinnedBase && (void *) p < _PyMem_PinnedEnd)
+    ((void *) p >= _PyGC_PinnedHeadBase && (void *) p < _PyGC_PinnedHeadBase)
 
 
 #define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
