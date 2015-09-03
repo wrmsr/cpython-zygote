@@ -10,7 +10,6 @@ log = logging.getLogger(__name__)
 
 
 class WsgiZygoteServer(server.ZygoteServer):
-    __metaclass__ = abc.ABCMeta
 
     def __init__(self, path, app, **kwargs):
         super(WsgiZygoteServer, self).__init__(path, **kwargs)
