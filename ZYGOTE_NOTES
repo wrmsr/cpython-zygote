@@ -21,6 +21,11 @@
 - pinstate to just a bool? can pin if contig?
 ** count PyObject_Malloc fallbacks
  - fork friendly malloc? alloc all holes?
+- Memory mappings that have been marked with the madvise(2) MADV_DONTFORK flag are not inherited across a fork().
+- configurable bump allocation (for both pymalloc and jemalloc) - uh wow pin use remaining pinned space :||||
+- jemalloc just reinit, fuck freeing
+- https://www.python.org/dev/peps/pep-0445/#don-t-call-malloc-directly-anymore
+- https://media.blackhat.com/bh-us-12/Briefings/Argyoudis/BH_US_12_Argyroudis_Exploiting_the_%20jemalloc_Memory_%20Allocator_WP.pdf
 
 * Bits 0-54  page frame number (PFN) if present
 * Bits 0-4   swap type if swapped
