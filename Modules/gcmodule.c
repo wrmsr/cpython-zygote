@@ -1149,8 +1149,8 @@ gc_pin(PyObject *self, PyObject *noargs)
         for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
             pgcp = (struct pinned_gc_head_placeholder *) gc;
             op = FROM_GC(gc);
-            pgc->object = 
-
+            pgc->object = op;
+            _PyObject_GC_UNTRACK(op);
             // pgc->hea
 
             pgc_prev = pgc;
