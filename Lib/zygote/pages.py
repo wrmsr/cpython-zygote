@@ -73,5 +73,5 @@ def get_status(pid='self'):
 
 
 def get_pagemap(pid='self'):
-    with open('/proc/%s/pid' % (pid,), 'rb') as f:
+    with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
         pass
