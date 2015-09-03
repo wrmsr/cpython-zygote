@@ -1130,6 +1130,8 @@ gc_pin(PyObject *self, PyObject *noargs)
     collect(NUM_GENERATIONS-1);
     collecting = 0;
 
+    // FIXME CHECK PY_PINNED RANGE FOR OBJECTS, GC LIST MAY NOT BE EMPTY
+
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
         for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
@@ -1178,6 +1180,10 @@ gc_pin(PyObject *self, PyObject *noargs)
 
     _PyGC_PinnedHeadBase = pgc;
     _PyGC_PinnedHeadBase = &pgc[gc_head_count];
+    _PyMem_PinnedBase = _PyMem_ContiguousBase;
+    _PyMem_PinnedEnd = _PyMem_ContiguousEnd;
+    _PyMem_ContiguousBase = NULL;
+    _PyMem_ContiguousEnd = NULL;
 
     collecting = 1;
     collect(NUM_GENERATIONS-1);
