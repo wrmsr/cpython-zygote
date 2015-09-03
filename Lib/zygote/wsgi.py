@@ -21,4 +21,4 @@ class WsgiZygoteServer(server.ZygoteServer):
 class WsgiZygoteClient(server.ZygoteClient):
 
     def __call__(self, environ, start_response):
-        raise NotImplementedError()
+        pass

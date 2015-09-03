@@ -54,11 +54,11 @@ class ZygoteBase(object):
         self.input = conn.makefile('rb', -1)
         self.output = conn.makefile('wb', 0)
 
-    def send(self, buf):
+    def write(self, buf):
         self.output.write(struct.pack('L', len(buf)))
         self.output.write(buf)
 
-    def recv(self, buf):
+    def read(self, buf):
         buflen = struct.unpack('L', self.input.read(struct.calcsize('L')))
         return self.input.read(buflen)
 
@@ -129,7 +129,7 @@ class ZygoteServer(ZygoteBase):
             if ret < 0:
                 raise ValueError(ret)
             os.dup2(ret, fd)
-        self.output.write('%d\n' % os.getpid())
+        self.write(str(os.getpid()))
 
 
 class ZygoteClient(ZygoteBase):
@@ -149,18 +149,14 @@ class ZygoteClient(ZygoteBase):
             self.set_conn(conn)
             self.handshake()
             self.install_signal_handlers()
-
-            while True:
-                line = self.input.readline()
-                if not line:
-                    break
+            self.work()
 
     def handshake(self):
         for fd in self.exchanged_fds:
             ret = passfd.sendfd(self.conn.fileno(), fd)
             if ret < 0:
                 raise ValueError(ret)
-        self.server_pid = int(self.input.readline())
+        self.server_pid = self.read()
 
     def install_signal_handlers(self):
         def handler(num, frame):
