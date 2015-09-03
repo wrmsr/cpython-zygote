@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """https://code.google.com/p/python-passfd/source/browse/src/passfd.c"""
+from __future__ import absolute_import
+
 import ctypes
 import socket
 
