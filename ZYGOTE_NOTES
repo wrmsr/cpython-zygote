@@ -27,6 +27,7 @@
 - https://www.python.org/dev/peps/pep-0445/#don-t-call-malloc-directly-anymore
 - https://media.blackhat.com/bh-us-12/Briefings/Argyoudis/BH_US_12_Argyroudis_Exploiting_the_%20jemalloc_Memory_%20Allocator_WP.pdf
 - shared mem for transport
+- wsgi client recycling policy
 
 * Bits 0-54  page frame number (PFN) if present
 * Bits 0-4   swap type if swapped

@@ -58,9 +58,15 @@ class ZygoteBase(object):
         self.output.write(struct.pack('L', len(buf)))
         self.output.write(buf)
 
-    def read(self, buf):
+    def read(self):
         buflen = struct.unpack('L', self.input.read(struct.calcsize('L')))
         return self.input.read(buflen)
+
+    def writeobj(self, buf):
+        self.write(pickle.dumps(buf))
+
+    def readobj(self):
+        return pickle.loads(self.read())
 
 
 class ZygoteServer(ZygoteBase):

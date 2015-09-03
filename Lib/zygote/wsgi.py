@@ -21,4 +21,11 @@ class WsgiZygoteServer(server.ZygoteServer):
 class WsgiZygoteClient(server.ZygoteClient):
 
     def __call__(self, environ, start_response):
-        pass
+        self.writeobj(environ)
+        status, response_headers, exc_info = self.readobj(), self.reodobj(), self.readobj()
+        start_response(status, response_headers, exc_info)
+        while True:
+            buf = self.read()
+            if not buf:
+                break
+            yield buf
