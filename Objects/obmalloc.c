@@ -585,6 +585,7 @@ _PyMem_SetupContiguousAllocation(size_t narenas)
     contiguous_head = (struct arena_placeholder *) address;
     for (i = 0; i < (narenas - 1); ++i)
         contiguous_head[i].next = &contiguous_head[i + 1];
+    _PyMem_ContiguousBase = address;
 
 #endif
 }
