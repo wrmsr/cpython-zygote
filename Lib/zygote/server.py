@@ -10,6 +10,11 @@ import struct
 import sys
 import traceback
 
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
 
 log = logging.getLogger(__name__)
 
@@ -30,9 +35,12 @@ def get_sock_cred(conn):
 
 class ZygoteBase(object):
 
-    exchanged_fds = (0, 1, 2)
-    forwarded_signals = [getattr(signal, name) for name in dir(signal)
-        if name.startswith('SIG')]
+    # exchanged_fds = (0, 1, 2)
+    # forwarded_signals = [getattr(signal, name) for name in dir(signal)
+    #     if name.startswith('SIG')]
+
+    exchanged_fds = ()
+    forwarded_signals = ()
 
     def __init__(self, path):
         self.path = path
