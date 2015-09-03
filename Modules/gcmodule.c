@@ -1131,6 +1131,7 @@ gc_pin(PyObject *self, PyObject *noargs)
     collecting = 0;
 
     // FIXME CHECK PY_PINNED RANGE FOR OBJECTS, GC LIST MAY NOT BE EMPTY
+    // return pinned object count :3
 
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
