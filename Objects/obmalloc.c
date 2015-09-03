@@ -42,8 +42,7 @@
 static int running_on_valgrind = -1;
 #endif
 
-#include "jemalloc/jemalloc.h"
-#define MALLOC je_malloc
+#define MALLOC malloc
 
 /* An object allocator for Python.
 
