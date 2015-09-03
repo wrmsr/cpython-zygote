@@ -31,7 +31,7 @@ PyGC_PinnedHead *_PyGC_PinnedHeadBase = NULL;
 PyGC_PinnedHead *_PyGC_PinnedHeadEnd = NULL;
 
 struct pinned_gc_head_placeholder {
-    PyGC_PinnedHead *gc;
+    PyGC_PinnedHead *pgc;
     char padding[sizeof(PyGC_Head) - sizeof(void *)];
 };
 
@@ -1113,9 +1113,7 @@ gc_pin(PyObject *self, PyObject *noargs)
     int gc_head_count = 0;
     int pinned_gc_head_count = 0;
     PyObject *op;
-    PyGC_PinnedHead *pgc_base;
     PyGC_PinnedHead *pgc;
-    PyGC_PinnedHead *pgc_prev;
     struct pinned_gc_head_placeholder *pgcp;
 
     if (_PyMem_PinnedBase != NULL) {
@@ -1138,28 +1136,48 @@ gc_pin(PyObject *self, PyObject *noargs)
             gc_head_count++;
     }
 
-    pgc_base = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
-    memset(pgc_base, 0, sizeof(PyGC_PinnedHead) * gc_head_count);
+    pgc = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
+    memset(pgc, 0, sizeof(PyGC_PinnedHead) * gc_head_count);
 
-    /*
-    pgc = pinned_gc_heads;
-    pgc_prev = &pgc[gc_head_count];
+    for (i = 0; i < gc_head_count; i++) {
+        pgc[i].head.gc.gc_prev = (PyGC_Head *) &pgc[i-1];
+        pgc[i].head.gc.gc_next = (PyGC_Head *) &pgc[i+1];
+    }
+
+    i = 0;
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
         for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
-            pgcp = (struct pinned_gc_head_placeholder *) gc;
             op = FROM_GC(gc);
-            pgc->object = op;
-            _PyObject_GC_UNTRACK(op);
-            // pgc->hea
 
-            pgc_prev = pgc;
-            pgc++;
+            gc->gc.gc_prev->gc.gc_next = gc->gc.gc_next;
+            gc->gc.gc_next->gc.gc_prev = gc->gc.gc_prev;
+
+            pgc[i].head.gc.gc_refs = gc->gc.gc_refs;
+            pgc[i].object = op;
+
+            pgcp = (struct pinned_gc_head_placeholder *) gc;
+            memset(pgcp, 0, sizeof(struct pinned_gc_head_placeholder));
+            pgcp->pgc = &pgc[i];
+
+            i++;
         }
     }
-    */
 
-    _PyGC_PinnedHeadBase = pgc_base;
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        if (gc_list.gc.gc_next != gc_list || gc_list.gc.gc_prev != gc_list)
+            Py_FatalError("pinned object drain failure");
+    }
+
+    gc_list = GEN_HEAD(NUM_GENERATIONS-1);
+    gc_list.gc.gc_next = &pgc[i].head;
+    pgc[i].head.gc_prev = &gc_list.gc;
+    gc_list.gc.gc_prev = &pgc[gc_head_count - 1].head;
+    pgc[gc_head_count - 1].head.gc_next = &gc_list.gc;
+
+    _PyGC_PinnedHeadBase = pgc;
+    _PyGC_PinnedHeadBase = &pgc[gc_head_count];
 
     collecting = 1;
     collect(NUM_GENERATIONS-1);
@@ -1171,10 +1189,8 @@ gc_pin(PyObject *self, PyObject *noargs)
             pinned_gc_head_count++;
     }
 
-    if (pinned_gc_head_count != gc_head_count) {
-        PyErr_SetString(PyExc_EnvironmentError, "pinned object count mismatch");
-        return NULL;
-    }
+    if (pinned_gc_head_count != gc_head_count)
+        Py_FatalError("pinned object count mismatch");
 
 Fail:
     Py_INCREF(Py_None);
