@@ -1198,7 +1198,6 @@ gc_pin(PyObject *self, PyObject *noargs)
     if (pinned_gc_head_count != gc_head_count)
         Py_FatalError("pinned object count mismatch");
 
-Fail:
     Py_INCREF(Py_None);
     return Py_None;
 }
