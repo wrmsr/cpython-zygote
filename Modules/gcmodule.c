@@ -25,14 +25,15 @@
 #define AS_GC(o) (Py_PINNED(o) ? *((PyGC_Head **) ((PyGC_Head *)(o)-1)) : (PyGC_Head *)(o)-1)
 
 /* Get the object given the GC head */
-#define FROM_GC(g) (Py_PINNED(g) ? *((PyObject **)(((PyGC_Head *)g)+1)) : (PyObject *)(((PyGC_Head *)g)+1))
+#define FROM_GC(g) (Py_PINNED_GC(g) ? ((PyGC_PinnedHead *)g)->object)) : (PyObject *)(((PyGC_Head *)g)+1))
 
-struct pinned_gc_head {
-    PyGC_Head head;
-    PyObject *object;
+PyGC_PinnedHead *_PyGC_PinnedHeadBase = NULL;
+PyGC_PinnedHead *_PyGC_PinnedHeadEnd = NULL;
+
+struct pinned_gc_head_placeholder {
+    PyGC_PinnedHead *gc;
+    char padding[sizeof(struct PyGC_Head) - sizeof(void *)];
 };
-
-static struct pinned_gc_head *pinned_gc_heads = NULL;
 
 /*** Global GC state ***/
 
@@ -1106,8 +1107,22 @@ PyDoc_STRVAR(gc_pin__doc__,
 static PyObject *
 gc_pin(PyObject *self, PyObject *noargs)
 {
+    int i, gen;
+    PyGC_Head *gc_list;
+    PyGC_Head *gc;
+    int gc_head_count = 0;
+    int pinned_gc_head_count = 0;
+    PyObject *op;
+    PyGC_PinnedHead *pgc;
+    PyGC_PinnedHead *pgc_prev;
+    struct pinned_gc_head_placeholder *pgcp;
+
+    if (_PyMem_PinnedBase != NULL) {
+        PyErr_SetString(PyExc_EnvironmentError, "already pinned");
+        return NULL;
+    }
     if (_PyMem_ContiguousBase == NULL) {
-        PyErr_SetString(PyExc_EnvironmentError, "not ready to pin");
+        PyErr_SetString(PyExc_EnvironmentError, "contiguous allocation not enabled");
         return NULL;
     }
     assert(pinned_gc_heads == NULL);
@@ -1116,34 +1131,47 @@ gc_pin(PyObject *self, PyObject *noargs)
     collect(NUM_GENERATIONS-1);
     collecting = 0;
 
-    /*
-void *_PyMem_PinnedBase = NULL;
-void *_PyMem_PinnedEnd = NULL;
-int _PyMem_PinState = PyMem_PIN_NONE;
-
-void *_PyMem_ContiguousAllocationBase = NULL;
-size_t _PyMem_ContiguousAllocationSize = 0;
-int _PyMem_ForceContiguousAllocation = 0;
-
-gc_get_objects:
-    for (i = 0; i < NUM_GENERATIONS; i++) {
-        if (append_objects(result, GEN_HEAD(i))) {
-            Py_DECREF(result);
-            return NULL;
-        }
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
+            gc_head_count++;
     }
 
-append_objects:
-    PyGC_Head *gc;
-    for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
-        PyObject *op = FROM_GC(gc);
-        if (op != py_list) {
-            if (PyList_Append(py_list, op)) {
-                return -1;
-            }
+    pinned_gc_heads = (struct pinned_gc_head *) PyMem_MALLOC(sizeof(struct pinned_gc_head) * gc_head_count);
+    memset(pinned_gc_heads, 0, sizeof(struct pinned_gc_head) * gc_head_count);
+
+    /*
+    pgc = pinned_gc_heads;
+    pgc_prev = &pgc[gc_head_count];
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+            pgcp = (struct pinned_gc_head_placeholder *) gc;
+            op = FROM_GC(gc);
+            pgc->object = 
+
+            // pgc->hea
+
+            pgc_prev = pgc;
+            pgc++;
         }
     }
     */
+
+    collecting = 1;
+    collect(NUM_GENERATIONS-1);
+    collecting = 0;
+
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
+            pinned_gc_head_count++;
+    }
+
+    if (pinned_gc_head_count != gc_head_count) {
+        PyErr_SetString(PyExc_EnvironmentError, "pinned object count mismatch");
+        return NULL;
+    }
 
 Fail:
     Py_INCREF(Py_None);

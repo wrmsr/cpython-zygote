@@ -260,6 +260,18 @@ typedef union _gc_head {
 
 extern PyGC_Head *_PyGC_generation0;
 
+typedef struct pinned_gc_head {
+    PyGC_Head head;
+    PyObject *object;
+} PyGC_PinnedHead;
+
+extern PyGC_PinnedHead *_PyGC_PinnedHeadBase;
+extern PyGC_PinnedHead *_PyGC_PinnedHeadEnd;
+
+#define Py_PINNED_GC(p)                         \
+    ((void *) p >= _PyMem_PinnedBase && (void *) p < _PyMem_PinnedEnd)
+
+
 #define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
 
 #define _PyGC_REFS_UNTRACKED                    (-2)
