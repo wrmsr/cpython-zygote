@@ -1113,6 +1113,7 @@ gc_pin(PyObject *self, PyObject *noargs)
     int gc_head_count = 0;
     int pinned_gc_head_count = 0;
     PyObject *op;
+    PyGC_PinnedHead *pgc_base;
     PyGC_PinnedHead *pgc;
     PyGC_PinnedHead *pgc_prev;
     struct pinned_gc_head_placeholder *pgcp;
@@ -1125,7 +1126,7 @@ gc_pin(PyObject *self, PyObject *noargs)
         PyErr_SetString(PyExc_EnvironmentError, "contiguous allocation not enabled");
         return NULL;
     }
-    assert(pinned_gc_heads == NULL);
+    assert(_PyGC_PinnedHeadBase == NULL);
 
     collecting = 1;
     collect(NUM_GENERATIONS-1);
@@ -1137,8 +1138,8 @@ gc_pin(PyObject *self, PyObject *noargs)
             gc_head_count++;
     }
 
-    pinned_gc_heads = (struct pinned_gc_head *) PyMem_MALLOC(sizeof(struct pinned_gc_head) * gc_head_count);
-    memset(pinned_gc_heads, 0, sizeof(struct pinned_gc_head) * gc_head_count);
+    pgc_base = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
+    memset(pgc_base, 0, sizeof(PyGC_PinnedHead) * gc_head_count);
 
     /*
     pgc = pinned_gc_heads;
@@ -1157,6 +1158,8 @@ gc_pin(PyObject *self, PyObject *noargs)
         }
     }
     */
+
+    _PyGC_PinnedHeadBase = pgc_base;
 
     collecting = 1;
     collect(NUM_GENERATIONS-1);
