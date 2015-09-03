@@ -10,6 +10,8 @@ import struct
 import sys
 import traceback
 
+from . import passfd
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -18,14 +20,13 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+MAGIC = 'zygote425f637d16cb47008223fbc983fdce61'
+
 
 def format_last_ex():
     exc, msc, tb = sys.exc_info()
     return 'Exception: %s\nExceptionMsg: %s\n%s\n' % (
         repr(exc), msc, ''.join(traceback.format_tb(tb)))
-
-def open_conn_files(conn):
-    return conn.makefile('rb', -1), conn.makefile('wb', 0)
 
 def get_sock_cred(conn):
     creds = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize('3i'))
@@ -43,16 +44,30 @@ class ZygoteBase(object):
     forwarded_signals = ()
 
     def __init__(self, path):
+        super(ZygoteBase, self).__init__()
         self.path = path
         self.original_pid = os.getpid()
         self.stderr = os.fdopen(os.dup(2), 'w', 0)
 
     def set_conn(self, conn):
         self.conn = conn
-        self.input, self.output = open_conn_files(self.conn)
+        self.input = conn.makefile('rb', -1)
+        self.output = conn.makefile('wb', 0)
+
+    def send(self, buf):
+        self.output.write(struct.pack('L', len(buf)))
+        self.output.write(buf)
+
+    def recv(self, buf):
+        buflen = struct.unpack('L', self.input.read(struct.calcsize('L')))
+        return self.input.read(buflen)
 
 
 class ZygoteServer(ZygoteBase):
+
+    def __init__(self, path, daemonize=False):
+        super(ZygoteServer, self).__init__(path)
+        self.daemonize = daemonize
 
     def init(self):
         pass
@@ -88,10 +103,11 @@ class ZygoteServer(ZygoteBase):
             log.info('Forked(1) done :: pid: %d' % (fork_pid))
             return
 
-        fork_pid = os.fork()
-        if fork_pid:
-            log.info('Forked(2) :: pid: %d' % (fork_pid))
-            os._exit(0)
+        if self.daemonize:
+            fork_pid = os.fork()
+            if fork_pid:
+                log.info('Forked(2) :: pid: %d' % (fork_pid))
+                os._exit(0)
 
         log.info('Serving')
 
@@ -109,11 +125,11 @@ class ZygoteServer(ZygoteBase):
     def handshake(self):
         self.client_pid = get_sock_cred(self.conn)[0]
         for fd in self.exchanged_fds:
-            ret, data = recvfd(self.conn.fileno())
+            ret, data = passfd.recvfd(self.conn.fileno())
             if ret < 0:
                 raise ValueError(ret)
             os.dup2(ret, fd)
-        self.out.write('%d\n' % os.getpid())
+        self.output.write('%d\n' % os.getpid())
 
 
 class ZygoteClient(ZygoteBase):
@@ -124,6 +140,9 @@ class ZygoteClient(ZygoteBase):
         conn.connect(self.path)
 
         self.handle_conn(conn)
+
+    def work(self):
+        pass
 
     def handle_conn(self, conn):
         with contextlib.closing(conn):
@@ -138,7 +157,7 @@ class ZygoteClient(ZygoteBase):
 
     def handshake(self):
         for fd in self.exchanged_fds:
-            ret = sendfd(self.conn.fileno(), fd)
+            ret = passfd.sendfd(self.conn.fileno(), fd)
             if ret < 0:
                 raise ValueError(ret)
         self.server_pid = int(self.input.readline())
