@@ -1168,7 +1168,7 @@ gc_pin(PyObject *self, PyObject *noargs)
 
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
-        if (gc_list.gc.gc_next != gc_list || gc_list.gc.gc_prev != gc_list)
+        if (gc_list.gc.gc_next != &gc_list.gc || gc_list.gc.gc_prev != &gc_list.gc)
             Py_FatalError("pinned object drain failure");
     }
 
