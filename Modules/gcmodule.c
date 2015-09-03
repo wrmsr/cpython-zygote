@@ -1133,6 +1133,7 @@ gc_pin(PyObject *self, PyObject *noargs)
     // FIXME CHECK PY_PINNED RANGE FOR OBJECTS, GC LIST MAY NOT BE EMPTY
     // return pinned object count :3
 
+    /*
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
         for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
@@ -1178,6 +1179,7 @@ gc_pin(PyObject *self, PyObject *noargs)
     pgc[i].head.gc_prev = &gc_list.gc;
     gc_list.gc.gc_prev = &pgc[gc_head_count - 1].head;
     pgc[gc_head_count - 1].head.gc_next = &gc_list.gc;
+    */
 
     _PyGC_PinnedHeadBase = pgc;
     _PyGC_PinnedHeadBase = &pgc[gc_head_count];

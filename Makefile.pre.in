@@ -72,7 +72,7 @@ CFLAGS=		$(BASECFLAGS) @CFLAGS@ $(OPT) $(EXTRA_CFLAGS)
 # Both CPPFLAGS and LDFLAGS need to contain the shell's value for setup.py to
 # be able to build extension modules using the directories specified in the
 # environment variables
-CPPFLAGS=	-I. -IInclude -I$(srcdir)/Include @CPPFLAGS@
+CPPFLAGS=	-I. -IInclude -Ijemalloc/include -I$(srcdir)/Include @CPPFLAGS@
 LDFLAGS=	@LDFLAGS@
 LDLAST=		@LDLAST@
 SGI_ABI=	@SGI_ABI@
@@ -299,6 +299,36 @@ ASDLGEN_FILES=	$(srcdir)/Parser/asdl.py $(srcdir)/Parser/asdl_c.py
 ASDLGEN=	$(srcdir)/Parser/asdl_c.py
 
 ##########################################################################
+# jemalloc
+
+JEMALLOC_OBJS=  \
+    jemalloc/src/jemalloc.o \
+    jemalloc/src/arena.o \
+    jemalloc/src/atomic.o \
+    jemalloc/src/base.o \
+    jemalloc/src/bitmap.o \
+    jemalloc/src/chunk.o \
+    jemalloc/src/chunk_dss.o \
+    jemalloc/src/chunk_mmap.o \
+    jemalloc/src/ckh.o \
+    jemalloc/src/ctl.o \
+    jemalloc/src/extent.o \
+    jemalloc/src/hash.o \
+    jemalloc/src/huge.o \
+    jemalloc/src/mb.o \
+    jemalloc/src/mutex.o \
+    jemalloc/src/pages.o \
+    jemalloc/src/prof.o \
+    jemalloc/src/quarantine.o \
+    jemalloc/src/rtree.o \
+    jemalloc/src/stats.o \
+    jemalloc/src/tcache.o \
+    jemalloc/src/util.o \
+    jemalloc/src/tsd.o \
+    jemalloc/src/zone.o
+
+
+##########################################################################
 # Python
 PYTHON_OBJS=	\
 		Python/_warnings.o \
@@ -346,7 +376,8 @@ PYTHON_OBJS=	\
 		Python/$(DYNLOADFILE) \
 		$(LIBOBJS) \
 		$(MACHDEP_OBJS) \
-		$(THREADOBJ)
+		$(THREADOBJ) \
+        $(JEMALLOC_OBJS)
 
 
 ##########################################################################
@@ -441,7 +472,7 @@ coverage:
 # Build the interpreter
 $(BUILDPYTHON):	Modules/python.o $(LIBRARY) $(LDLIBRARY)
 		$(LINKCC) $(LDFLAGS) $(LINKFORSHARED) -o $@ \
-			Modules/python.o \
+			Modules/python.o $(JEMALLOC_OBJS) \
 			$(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS) $(LDLAST)
 
 platform: $(BUILDPYTHON) pybuilddir.txt
