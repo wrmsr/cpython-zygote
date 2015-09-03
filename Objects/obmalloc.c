@@ -42,6 +42,9 @@
 static int running_on_valgrind = -1;
 #endif
 
+#include "jemalloc/jemalloc.h"
+#define MALLOC je_malloc
+
 /* An object allocator for Python.
 
    Here is an introduction to the layers of the Python memory architecture,
@@ -701,7 +704,7 @@ new_arena(void)
 #else
     if (_PyMem_ContiguousBase != NULL)
         return NULL;
-    address = malloc(ARENA_SIZE);
+    address = MALLOC(ARENA_SIZE);
     err = (address == 0);
 #endif
     if (err) {
@@ -1067,7 +1070,7 @@ redirect:
      */
     if (nbytes == 0)
         nbytes = 1;
-    return (void *)malloc(nbytes);
+    return (void *)MALLOC(nbytes);
 }
 
 /* free */
