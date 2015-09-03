@@ -70,3 +70,13 @@ def get_status(pid='self'):
         s[k] = int(v) * us[u]
     d['status'] = s
     return d
+
+
+* Bits 0-54  page frame number (PFN) if present
+* Bits 0-4   swap type if swapped
+* Bits 5-54  swap offset if swapped
+* Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
+* Bits 56-60 zero
+* Bit  61    page is file-page or shared-anon
+* Bit  62    page swapped
+* Bit  63    page present

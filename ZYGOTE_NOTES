@@ -37,3 +37,5 @@
 * Bit  61    page is file-page or shared-anon
 * Bit  62    page swapped
 * Bit  63    page present
+
+https://github.com/torvalds/linux/blob/master/fs/proc/task_mmu.c#L1329 oh you fucking pricks
