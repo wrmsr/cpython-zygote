@@ -1,6 +1,6 @@
 - compiler switchable branch liklihood bias
 - switchable deallocation modes: call dtor or dont
-- todo freelists 
+- todo freelists
 - https://code.google.com/p/chromium/wiki/LinuxZygote
 - https://stackoverflow.com/questions/2731531/faster-forking-of-large-processes-on-linux
 - https://github.com/Yelp/zygote/tree/master/zygote
@@ -35,3 +35,6 @@ http://neugierig.org/software/chromium/notes/2011/08/zygote.html
 
 * TODO allocation context struct - threadlocal
 - mp [billiard] worker pool, zmq pool
+
+sudo apt-get install libbz2-dev
+ ./configure --enable-unicode=ucs4

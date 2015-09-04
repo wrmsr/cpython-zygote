@@ -158,6 +158,9 @@ class ZygoteServer(ZygoteBase):
         log.info('Initializing')
         self.init()
 
+        if len(threading.enumerate()) != 1:
+            log.warn('Multiple active threads detected')
+
         log.info('Binding :: path: %s' % (self.path,))
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.bind(self.path)
