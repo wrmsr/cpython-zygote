@@ -89,6 +89,7 @@ class ZygoteBase(object):
         os.mkfifo(my_filename)
         my_r = os.open(my_filename, os.O_RDONLY | os.O_NONBLOCK)
         fcntl.fcntl(my_r, fcntl.F_SETPIPE_SZ, page_size)
+
         if as_server:
             their_filename = self.read()
             their_w = os.open(their_filename, os.O_WRONLY)
@@ -99,9 +100,11 @@ class ZygoteBase(object):
             their_filename = self.read()
             their_w = os.open(their_filename, os.O_WRONLY)
             self.write('')
+
         fcntl.fcntl(their_w, fcntl.F_SETPIPE_SZ, page_size)
         os.unlink(my_filename)
         os.rmdir(tmpdir)
+
         def wait():
             while True:
                 try:
@@ -111,6 +114,7 @@ class ZygoteBase(object):
                         break
             log.debug('Deathpact fired')
             os._exit(0)
+
         threading.Thread(target=wait, name='deathpact').start()
 
 

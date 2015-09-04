@@ -5,36 +5,6 @@ import re
 import struct
 
 
-MAP_FILE_RX = re.compile(
-    r'^'
-    r'(?P<address>[A-Fa-f0-9]+)-(?P<end_address>[A-Fa-f0-9]+)\s+'
-    r'(?P<permissions>\S+)\s+'
-    r'(?P<offset>[A-Fa-f0-9]+)\s+'
-    r'(?P<device>\S+)\s+'
-    r'(?P<inode>\d+)\s+'
-    r'(?P<path>.*)'
-    r'$')
-
-def get_maps(pid='self'):
-    with open('/proc/%s/maps' % (pid,), 'r') as map_file:
-        for line in map_file:
-            m = MAP_FILE_RX.match(line)
-            if not m:
-                raise ValueError(line)
-            address = int(m.group('address'), 16)
-            end_address = int(m.group('end_address'), 16)
-            yield {
-                'address': address,
-                'end_address': end_address,
-                'size': end_address - address,
-                'permissions': m.group('permissions'),
-                'offset': int(m.group('offset'), 16),
-                'device': m.group('device'),
-                'inode': int(m.group('inode')),
-                'path': m.group('path')
-            }
-
-
 STATM_FILE_KEYS = (
     'size',
     'resident',
@@ -74,6 +44,36 @@ def get_status(pid='self'):
     return d
 
 
+MAP_FILE_RX = re.compile(
+    r'^'
+    r'(?P<address>[A-Fa-f0-9]+)-(?P<end_address>[A-Fa-f0-9]+)\s+'
+    r'(?P<permissions>\S+)\s+'
+    r'(?P<offset>[A-Fa-f0-9]+)\s+'
+    r'(?P<device>\S+)\s+'
+    r'(?P<inode>\d+)\s+'
+    r'(?P<path>.*)'
+    r'$')
+
+def get_maps(pid='self'):
+    with open('/proc/%s/maps' % (pid,), 'r') as map_file:
+        for line in map_file:
+            m = MAP_FILE_RX.match(line)
+            if not m:
+                raise ValueError(line)
+            address = int(m.group('address'), 16)
+            end_address = int(m.group('end_address'), 16)
+            yield {
+                'address': address,
+                'end_address': end_address,
+                'size': end_address - address,
+                'permissions': m.group('permissions'),
+                'offset': int(m.group('offset'), 16),
+                'device': m.group('device'),
+                'inode': int(m.group('inode')),
+                'path': m.group('path')
+            }
+
+
 def get_bits(f, t, n):
     return (n&((1<<(t+1))-1))>>f
 
@@ -108,3 +108,28 @@ def get_pagemap(pid='self'):
     for m in get_maps(pid):
         for p in get_range_pagemap(m['address'], m['end_address'], pid):
             yield p
+
+
+def main():
+    import json
+    import optparse
+    import sys
+
+    option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog pid')
+    option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
+
+    options, args = option_parser.parse_args()
+    if len(args) != 1:
+        option_parser.error('invalid arguments')
+    pid, = args
+
+    lst = []
+    for m in get_maps(pid):
+        m['pagemap'] = list(get_range_pagemap(m['address'], m['end_address'], pid))
+        lst.append(m)
+    sys.stdout.write(json.dumps(lst, indent=4))
+    sys.stdout.write('\n')
+
+
+if __name__ == '__main__':
+    main()
