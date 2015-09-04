@@ -77,22 +77,27 @@ def get_bits(f, t, n):
 
 def get_bit(c, n):
     return get_bits(c, c, n)
-    
 
-def get_range_pagemap(f, t, pid='self'):
+
+def get_range_pagemap(s, e, pid='self'):
     page_size = 0x1000
+    ofs = (s / page_size) * 8
+    sz = (((e - s) / page_size) * 8) - ofs
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
-        for a in xrange(f, t, page_size):
-            ofs = a / page_size
-            yield {
-                'pfn': get_bits(0, 54, n),
-                'swap_type': get_bits(0, 4, n),
-                'swap_offset': get_bits(5, 54, n),
-                'pte_soft_dirty': get_bit(55, n),
-                'file_page_or_shared_anon': get_bit(61, n),
-                'page_swapped': get_bit(62, n),
-                'page_present': get_bit(63, n),
-            }
+        f.seek(ofs)
+        buf = f.read(sz)
+    for i, a in enumerate(xrange(s, e, page_size)):
+        n = struct.unpack('Q', buf[i*8, (i+1)*8])
+        yield {
+            'address': a,
+            'pfn': get_bits(0, 54, n),
+            'swap_type': get_bits(0, 4, n),
+            'swap_offset': get_bits(5, 54, n),
+            'pte_soft_dirty': get_bit(55, n),
+            'file_page_or_shared_anon': get_bit(61, n),
+            'page_swapped': get_bit(62, n),
+            'page_present': get_bit(63, n),
+        }
 
 def get_pagemap(pid='self'):
     for m in get_maps(pid):
