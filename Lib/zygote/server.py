@@ -120,9 +120,13 @@ class ZygoteBase(object):
 
 class ZygoteServer(ZygoteBase):
 
-    def __init__(self, path, daemonize=False):
+    DEFAULT_REAP_INTERVAL = 3
+
+    def __init__(self, path, daemonize=False, reap_interval=DEFAULT_REAP_INTERVAL):
         super(ZygoteServer, self).__init__(path)
         self.daemonize = daemonize
+        self.reap_interval = reap_interval
+        self.child_pids = set()
 
     def setup_deathpact(self):
         self.setup_deathpact_as(True)
@@ -132,6 +136,13 @@ class ZygoteServer(ZygoteBase):
 
     def work(self):
         pass
+
+    def reap(self):
+        for pid in list(self.child_pids):
+            rpid, rc = os.waitpid(pid, os.WNOHANG)
+            if rpid:
+                self.child_pids.remove(pid)
+                log.info('Reaped :: pid: %d, rc: %d' % (pid, rc))
 
     def run(self):
         if os.path.exists(self.path):
@@ -144,13 +155,30 @@ class ZygoteServer(ZygoteBase):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.bind(self.path)
 
-        self.sock.listen(1)
-        log.info('Listening')
+        class _nonlocal(object):
+            reaping = True
+        if not self.daemonize:
+            def reap():
+                while _nonlocal.reaping:
+                    self.reap()
+                    time.sleep(self.reap_interval)
+            reaper = threading.Thread(target=reap).start()
+        else:
+            reaper = None
 
-        while True:
-            conn, addr = self.sock.accept()
-            log.info('Connection :: pid: %d, uid: %d, gid %d' % get_sock_cred(conn))
-            self.handle_conn(conn)
+        try:
+            self.sock.listen(1)
+            log.info('Listening')
+
+            while True:
+                conn, addr = self.sock.accept()
+                log.info('Connection :: pid: %d, uid: %d, gid %d' % get_sock_cred(conn))
+                self.handle_conn(conn)
+
+        finally:
+            if reaper is not None:
+                _nonlocal.reaping = False
+                reaper.join()
 
     def handle_conn(self, conn):
         if not self.exchange_magic(conn):
@@ -162,7 +190,10 @@ class ZygoteServer(ZygoteBase):
         if fork_pid:
             log.info('Forked(1) :: pid: %d' % (fork_pid,))
             conn.close()
-            os.waitpid(fork_pid, 0)
+            if self.daemonize:
+                os.waitpid(fork_pid, 0)
+            else:
+                self.child_pids.add(fork_pid)
             log.info('Forked(1) done :: pid: %d' % (fork_pid,))
             return
 
@@ -300,6 +331,7 @@ def main():
 
     option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog path')
     option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
+    option_parser.add_option('-d', '--daemon', dest='is_daemon', action='store_true')
 
     options, args = option_parser.parse_args()
     if len(args) != 1:
@@ -307,7 +339,7 @@ def main():
     path, = args
 
     if options.is_server:
-        InteractiveZygoteServer(path).run()
+        InteractiveZygoteServer(path, daemonize=options.is_daemon).run()
     else:
         InteractiveZygoteClient(path).run()
 
