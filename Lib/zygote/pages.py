@@ -79,22 +79,22 @@ def get_bit(c, n):
     return get_bits(c, c, n)
     
 
-def get_pagemap(pid='self'):
+def get_range_pagemap(f, t, pid='self')
+    page_size = 0x1000
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
-        n
-        pfn = get_bits(0, 54, n)
-        swap_type = get_bits(0, 4, n)
-        swap_offset = get_bits(5, 54, n)
-        pte_soft_dirty = get_bit(55, n)
-        file_page_or_shared_anon = get_bit(61, n)
+        for a in xrange(, page_size):
+            ofs = a / page_size
+            yield {
+                'pfn': get_bits(0, 54, n),
+                'swap_type': get_bits(0, 4, n),
+                'swap_offset': get_bits(5, 54, n),
+                'pte_soft_dirty': get_bit(55, n),
+                'file_page_or_shared_anon': get_bit(61, n),
+                'page_swapped': get_bit(62, n),
+                'page_present': get_bit(63, n),
+            }
 
-        * Bits 0-54  page frame number (PFN) if present
-        * Bits 0-4   swap type if swapped
-        * Bits 5-54  swap offset if swapped
-        * Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
-        * Bits 56-60 zero
-        * Bit  61    page is file-page or shared-anon
-        * Bit  62    page swapped
-        * Bit  63    page present
-
-        pass
+def get_pagemap(pid='self'):
+    for m in get_maps(pid):
+        for p in get_range_pagemap(m['address'], m['end_address'], pid):
+            yield p
