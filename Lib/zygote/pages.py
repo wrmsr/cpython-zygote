@@ -2,6 +2,8 @@
 from __future__ import absolute_import
 
 import re
+import struct
+
 
 MAP_FILE_RX = re.compile(
     r'^'
