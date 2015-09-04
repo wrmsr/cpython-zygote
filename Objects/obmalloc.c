@@ -567,13 +567,21 @@ initialize_alloc_context(struct alloc_context *ac)
     initialize_pool_array(ac->usedpools);
 }
 
-static struct alloc_context _context;
-static struct alloc_context *context = &_context;
+static struct alloc_context _root_context;
+static struct alloc_context *root_context;
 
-void
-_PyMem_Initialize(void)
+struct alloc_context *
+get_alloc_context(void)
 {
-    initialize_alloc_context(context);
+    if (UNLIKELY(root_context == NULL)) {
+        LOCK();
+        if (UNLIKELY(root_context == NULL)) {
+            initialize_alloc_context(&_root_context);
+            root_context = &_root_context;
+        }
+        UNLOCK();
+    }
+    return root_context;
 }
 
 /* How many arena_objects do we initially allocate?
