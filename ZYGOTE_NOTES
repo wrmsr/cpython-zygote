@@ -3,10 +3,9 @@
 - todo freelists 
 - https://code.google.com/p/chromium/wiki/LinuxZygote
 - https://stackoverflow.com/questions/2731531/faster-forking-of-large-processes-on-linux
-- prealloc
+- https://github.com/Yelp/zygote/tree/master/zygote
+- make sure greenlet still works
 - l3 sharing
-- ymz
-- op->p
 - page analyzer
 - pre-toucher / ideally modify page flags to let it happen naturally in fork()
 - /proc smaps + pagemap
@@ -28,16 +27,6 @@
 - https://media.blackhat.com/bh-us-12/Briefings/Argyoudis/BH_US_12_Argyroudis_Exploiting_the_%20jemalloc_Memory_%20Allocator_WP.pdf
 - shared mem for transport
 - wsgi client recycling policy
-
-* Bits 0-54  page frame number (PFN) if present
-* Bits 0-4   swap type if swapped
-* Bits 5-54  swap offset if swapped
-* Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
-* Bits 56-60 zero
-* Bit  61    page is file-page or shared-anon
-* Bit  62    page swapped
-* Bit  63    page present
-
 https://github.com/torvalds/linux/blob/master/fs/proc/task_mmu.c#L1329 oh you fucking pricks
 https://github.com/torvalds/linux/commit/ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce <^>
 
