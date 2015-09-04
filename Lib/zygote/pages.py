@@ -84,14 +84,15 @@ def get_bit(c, n):
 def get_range_pagemap(s, e, pid='self'):
     page_size = 0x1000
     ofs = (s / page_size) * 8
-    sz = ((e - s) / page_size) * 8
+    npages = ((e - s) / page_size)
+    sz = npages * 8
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
         f.seek(ofs)
         buf = f.read(sz)
-    for i, a in enumerate(xrange(s, e, page_size)):
+    for i in xrange(npages):
         [n] = struct.unpack('Q', buf[i*8:(i+1)*8])
         yield {
-            'address': a,
+            'address': s + (i * page_size),
             'pfn': get_bits(0, 54, n),
             'swap_type': get_bits(0, 4, n),
             'swap_offset': get_bits(5, 54, n),
