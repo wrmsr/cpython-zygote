@@ -80,6 +80,7 @@ def get_bit(c, n):
 
 
 def get_range_pagemap(s, e, pid='self'):
+    import pdb; pdb.set_trace()
     page_size = 0x1000
     ofs = (s / page_size) * 8
     sz = (((e - s) / page_size) * 8) - ofs
