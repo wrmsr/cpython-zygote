@@ -61,13 +61,9 @@ PyAPI_DATA(void *) _PyMem_ContiguousEnd;
 PyAPI_DATA(void *) _PyMem_PinnedBase;
 PyAPI_DATA(void *) _PyMem_PinnedEnd;
 
-PyAPI_DATA(void *) _PyMem_usedpools_addr;
-PyAPI_DATA(void *) _PyMem_maxarenas_addr;
-PyAPI_DATA(void *) _PyMem_arenas_addr;
-PyAPI_DATA(void *) _PyMem_unused_arena_objects_addr;
-PyAPI_DATA(void *) _PyMem_usable_arenas_addr;
-PyAPI_DATA(void *) _PyMem_narenas_currently_allocated_addr;
 PyAPI_DATA(int) _PyMem_ARENAS_USE_MMAP;
+
+PyAPI_FUNC(void) _PyMem_Initialize(void);
 
 #define Py_CONTIGUOUS(p)                             \
     ((void *) p >= _PyMem_ContiguousBase && (void *) p < _PyMem_ContiguousEnd)
