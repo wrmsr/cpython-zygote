@@ -123,11 +123,12 @@ def main():
         option_parser.error('invalid arguments')
     pid, = args
 
-    lst = []
     for m in get_maps(pid):
-        m['pagemap'] = list(get_range_pagemap(m['address'], m['end_address'], pid))
-        lst.append(m)
-    sys.stdout.write(json.dumps(lst, indent=4))
+        sys.stdout.write(json.dumps({'map': m}, indent=4))
+        sys.stdout.write('\n')
+        for pm in get_range_pagemap(m['address'], m['end_address'], pid):
+            sys.stdout.write(json.dumps({'pagemap': pm}, indent=4))
+            sys.stdout.write('\n')
     sys.stdout.write('\n')
 
 
