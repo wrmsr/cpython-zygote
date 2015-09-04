@@ -80,6 +80,16 @@ def get_bits(f, t, n):
 def get_bit(c, n):
     return get_bits(c, c, n)
 
+PAGEMAP_KEYS = (
+    'address',
+    'pfn',
+    'swap_type',
+    'swap_offset',
+    'pte_soft_dirty',
+    'file_page_or_shared_anon',
+    'page_swapped',
+    'page_present',
+)
 
 def get_range_pagemap(s, e, pid='self'):
     page_size = 0x1000
@@ -111,25 +121,49 @@ def get_pagemap(pid='self'):
 
 
 def main():
-    import json
     import optparse
     import sys
 
     option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog pid')
-    option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
+    option_parser.add_option('-p', '--pickle', dest='is_pickle', action='store_true')
+    option_parser.add_option('-m', '--minimal', dest='is_minimal', action='store_true')
+    option_parser.add_option('-i', '--indented', dest='is_indented', action='store_true')
 
     options, args = option_parser.parse_args()
     if len(args) != 1:
         option_parser.error('invalid arguments')
     pid, = args
 
-    for m in get_maps(pid):
-        sys.stdout.write(json.dumps({'map': m}, indent=4))
-        sys.stdout.write('\n')
-        for pm in get_range_pagemap(m['address'], m['end_address'], pid):
-            sys.stdout.write(json.dumps({'pagemap': pm}, indent=4))
+    if options.is_minimal:
+        def format_pm(pm):
+            return tuple(pm[k] for k in PAGEMAP_KEYS)
+    else:
+        def format_pm(pm):
+            return pm
+
+    if options.is_pickle:
+        try:
+            import cPickle as pickle
+        except ImportError:
+            import pickle
+
+        lst = []
+        for m in get_maps(pid):
+            m['mappings'] = list(map(format_pm, get_range_pagemap(m['address'], m['end_address'], pid)))
+            lst.append(m)
+        sys.stdout.write(pickle.dumps(lst))
+
+    else:
+        import json
+
+        indent = 4 if options.is_indented else None
+        for m in get_maps(pid):
+            sys.stdout.write(json.dumps({'map': m}, indent=indent))
             sys.stdout.write('\n')
-    sys.stdout.write('\n')
+            for pm in get_range_pagemap(m['address'], m['end_address'], pid):
+                sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
+                sys.stdout.write('\n')
+        sys.stdout.write('\n')
 
 
 if __name__ == '__main__':
