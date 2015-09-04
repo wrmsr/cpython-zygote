@@ -82,7 +82,7 @@ def get_bit(c, n):
 def get_range_pagemap(f, t, pid='self'):
     page_size = 0x1000
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
-        for a in xrange(, page_size):
+        for a in xrange(f, t, page_size):
             ofs = a / page_size
             yield {
                 'pfn': get_bits(0, 54, n),
