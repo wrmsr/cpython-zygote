@@ -155,6 +155,7 @@ class ZygoteServer(ZygoteBase):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.bind(self.path)
 
+        # FIXME listen w timeout, do this single threaded
         class _nonlocal(object):
             reaping = True
         if not self.daemonize:
