@@ -63,8 +63,6 @@ PyAPI_DATA(void *) _PyMem_PinnedEnd;
 
 PyAPI_DATA(int) _PyMem_ARENAS_USE_MMAP;
 
-PyAPI_FUNC(void) _PyMem_Initialize(void);
-
 #define Py_CONTIGUOUS(p)                             \
     ((void *) p >= _PyMem_ContiguousBase && (void *) p < _PyMem_ContiguousEnd)
 

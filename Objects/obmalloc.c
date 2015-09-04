@@ -470,21 +470,21 @@ void
 initialize_pool_array(poolp *usedpools)
 {
     poolp src[USED_POOL_ARR_SIZE] = {
-        PT(0), PT(1), PT(2), PT(3), PT(4), PT(5), PT(6), PT(7)
+    PT(0), PT(1), PT(2), PT(3), PT(4), PT(5), PT(6), PT(7)
 #if NB_SMALL_SIZE_CLASSES > 8
-        , PT(8), PT(9), PT(10), PT(11), PT(12), PT(13), PT(14), PT(15)
+    , PT(8), PT(9), PT(10), PT(11), PT(12), PT(13), PT(14), PT(15)
 #if NB_SMALL_SIZE_CLASSES > 16
-        , PT(16), PT(17), PT(18), PT(19), PT(20), PT(21), PT(22), PT(23)
+    , PT(16), PT(17), PT(18), PT(19), PT(20), PT(21), PT(22), PT(23)
 #if NB_SMALL_SIZE_CLASSES > 24
-        , PT(24), PT(25), PT(26), PT(27), PT(28), PT(29), PT(30), PT(31)
+    , PT(24), PT(25), PT(26), PT(27), PT(28), PT(29), PT(30), PT(31)
 #if NB_SMALL_SIZE_CLASSES > 32
-        , PT(32), PT(33), PT(34), PT(35), PT(36), PT(37), PT(38), PT(39)
+    , PT(32), PT(33), PT(34), PT(35), PT(36), PT(37), PT(38), PT(39)
 #if NB_SMALL_SIZE_CLASSES > 40
-        , PT(40), PT(41), PT(42), PT(43), PT(44), PT(45), PT(46), PT(47)
+    , PT(40), PT(41), PT(42), PT(43), PT(44), PT(45), PT(46), PT(47)
 #if NB_SMALL_SIZE_CLASSES > 48
-        , PT(48), PT(49), PT(50), PT(51), PT(52), PT(53), PT(54), PT(55)
+    , PT(48), PT(49), PT(50), PT(51), PT(52), PT(53), PT(54), PT(55)
 #if NB_SMALL_SIZE_CLASSES > 56
-        , PT(56), PT(57), PT(58), PT(59), PT(60), PT(61), PT(62), PT(63)
+    , PT(56), PT(57), PT(58), PT(59), PT(60), PT(61), PT(62), PT(63)
 #if NB_SMALL_SIZE_CLASSES > 64
 #error "NB_SMALL_SIZE_CLASSES should be less than 64"
 #endif /* NB_SMALL_SIZE_CLASSES > 64 */
@@ -497,7 +497,7 @@ initialize_pool_array(poolp *usedpools)
 #endif /* NB_SMALL_SIZE_CLASSES >  8 */
     };
 
-    memcpy(&usedpools, src, sizeof(usedpools));
+    memcpy(usedpools, src, sizeof(poolp) * USED_POOL_ARR_SIZE);
 }
 
 
