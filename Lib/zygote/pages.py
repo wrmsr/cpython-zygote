@@ -79,7 +79,7 @@ def get_bit(c, n):
     return get_bits(c, c, n)
     
 
-def get_range_pagemap(f, t, pid='self')
+def get_range_pagemap(f, t, pid='self'):
     page_size = 0x1000
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
         for a in xrange(, page_size):
