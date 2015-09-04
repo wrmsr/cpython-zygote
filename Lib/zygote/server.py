@@ -82,12 +82,46 @@ class ZygoteBase(object):
         their_magic = conn.recv(len(MAGIC))
         return their_magic == MAGIC
 
+    def setup_deathpact_as(self, as_server):
+        page_size = resource.getpagesize()
+        tmpdir = tempfile.mkdtemp()
+        my_filename = os.path.join(tmpdir, 'deathpact-%d' % (os.getpid(),))
+        os.mkfifo(my_filename)
+        my_r = os.open(my_filename, os.O_RDONLY | os.O_NONBLOCK)
+        fcntl.fcntl(my_r, fcntl.F_SETPIPE_SZ, page_size)
+        if as_server:
+            their_filename = self.read()
+            their_w = os.open(their_filename, os.O_WRONLY)
+            self.write(my_filename)
+            self.read()
+        else:
+            self.write(my_filename)
+            their_filename = self.read()
+            their_w = os.open(their_filename, os.O_WRONLY)
+            self.write('')
+        fcntl.fcntl(their_w, fcntl.F_SETPIPE_SZ, page_size)
+        os.unlink(my_filename)
+        os.rmdir(tmpdir)
+        def wait():
+            while True:
+                try:
+                    os.write(their_w, '\0' * page_size)
+                except OSError as e:
+                    if e.errno == errno.EPIPE:
+                        break
+            log.debug('Deathpact fired')
+            os._exit(0)
+        threading.Thread(target=wait, name='deathpact').start()
+
 
 class ZygoteServer(ZygoteBase):
 
     def __init__(self, path, daemonize=False):
         super(ZygoteServer, self).__init__(path)
         self.daemonize = daemonize
+
+    def setup_deathpact(self):
+        self.setup_deathpact_as(True)
 
     def init(self):
         pass
@@ -170,6 +204,9 @@ class ZygoteClient(ZygoteBase):
 
         self.handle_conn(conn)
 
+    def setup_deathpact(self):
+        self.setup_deathpact_as(False)
+
     def work(self):
         pass
 
@@ -206,84 +243,22 @@ class InteractiveZygoteBase(object):
     forwarded_signals = ZygoteBase.forwarded_signals + tuple(
         getattr(signal, name) for name in dir(signal) if name.startswith('SIG'))
 
-    # FIXME better signal propagation = higher reap interval :|
-    DEFAULT_REAP_INTERVAL = 1
-
-    def __init__(self, path, reap_interval=DEFAULT_REAP_INTERVAL, **kwargs):
-        super(InteractiveZygoteBase, self).__init__(path, **kwargs)
-        self.reap_interval = reap_interval
-
-    def setup_file_deathpact(self):
-        if not self.reap_interval:
-            return
-        my_file, my_file_path = tempfile.mkstemp()
-        fcntl.lockf(my_file, fcntl.LOCK_EX)
-        self.write(my_file_path)
-        their_file_path = self.read()
-        their_file = os.open(their_file_path, os.O_RDWR)
-        self.write('')
-        self.read()
-        os.unlink(my_file_path)
-        def wait():
-            while True:
-                try:
-                    fcntl.lockf(their_file, fcntl.LOCK_EX)
-                except IOError as e:
-                    if e.errno == errno.EDEADLK:
-                        pass
-                    else:
-                        raise
-                else:
-                    break
-                time.sleep(self.reap_interval)
-            log.debug('Deathpact fired')
-            os._exit(0)
-        threading.Thread(target=wait).start()
-
-    def setup_pipe_deathpact(self, as_server):
-        page_size = resource.getpagesize()
-        tmpdir = tempfile.mkdtemp()
-        my_filename = os.path.join(tmpdir, 'deathpact-%d' % (os.getpid(),))
-        os.mkfifo(my_filename)
-        my_r = os.open(my_filename, os.O_RDONLY | os.O_NONBLOCK)
-        fcntl.fcntl(my_r, fcntl.F_SETPIPE_SZ, page_size)
-        if as_server:
-            their_filename = self.read()
-            their_w = os.open(their_filename, os.O_WRONLY)
-            self.write(my_filename)
-            self.read()
-        else:
-            self.write(my_filename)
-            their_filename = self.read()
-            their_w = os.open(their_filename, os.O_WRONLY)
-            self.write('')
-        fcntl.fcntl(their_w, fcntl.F_SETPIPE_SZ, page_size)
-        os.unlink(my_filename)
-        os.rmdir(tmpdir)
-        def wait():
-            while True:
-                try:
-                    os.write(their_w, '\0' * page_size)
-                except OSError as e:
-                    if e.errno == errno.EPIPE:
-                        break
-            log.debug('Deathpact fired')
-            os._exit(0)
-        threading.Thread(target=wait).start()
-
-    def setup_deathpact(self, as_server):
-        self.setup_pipe_deathpact(as_server)
-
 
 class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
 
-    def __init__(self, path, try_ipython=True, **kwargs):
-        self.try_ipython = try_ipython
+    def __init__(self, path, init=None, try_ipython=True, **kwargs):
         super(InteractiveZygoteServer, self).__init__(path, **kwargs)
+        self.try_ipython = try_ipython
+        self.init_fn = init
+
+    def init(self):
+        super(InteractiveZygoteServer, self).init()
+        if self.init_fn is not None:
+            self.init_fn()
 
     def handshake(self):
         super(InteractiveZygoteServer, self).handshake()
-        self.setup_deathpact(True)
+        self.setup_deathpact()
 
     def work(self):
         if self.try_ipython:
@@ -307,7 +282,7 @@ class InteractiveZygoteClient(InteractiveZygoteBase, ZygoteClient):
 
     def handshake(self):
         super(InteractiveZygoteClient, self).handshake()
-        self.setup_deathpact(False)
+        self.setup_deathpact()
 
     def work(self):
         while True:
