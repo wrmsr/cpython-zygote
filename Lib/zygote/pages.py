@@ -98,10 +98,10 @@ def get_range_pagemap(s, e, pid='self'):
             'pfn': get_bits(0, 54, n),
             'swap_type': get_bits(0, 4, n),
             'swap_offset': get_bits(5, 54, n),
-            'pte_soft_dirty': get_bit(55, n),
-            'file_page_or_shared_anon': get_bit(61, n),
-            'page_swapped': get_bit(62, n),
-            'page_present': get_bit(63, n),
+            'pte_soft_dirty': bool(get_bit(55, n)),
+            'file_page_or_shared_anon': bool(get_bit(61, n)),
+            'page_swapped': bool(get_bit(62, n)),
+            'page_present': bool(get_bit(63, n)),
         }
 
 def get_pagemap(pid='self'):
