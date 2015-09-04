@@ -574,6 +574,7 @@ struct alloc_context *
 get_alloc_context(void)
 {
     if (root_context == NULL) {
+        // FIXME actually lock lol
         LOCK();
         if (root_context == NULL) {
             initialize_alloc_context(&_root_context);
