@@ -573,9 +573,9 @@ static struct alloc_context *root_context;
 struct alloc_context *
 get_alloc_context(void)
 {
-    if (UNLIKELY(root_context == NULL)) {
+    if (root_context == NULL) {
         LOCK();
-        if (UNLIKELY(root_context == NULL)) {
+        if (root_context == NULL) {
             initialize_alloc_context(&_root_context);
             root_context = &_root_context;
         }
@@ -680,6 +680,7 @@ new_arena(void)
     uint excess;        /* number of bytes above pool alignment */
     void *address = NULL;
     int err;
+    struct alloc_context *context = get_alloc_context();
 
 #ifdef PYMALLOC_DEBUG
     if (Py_GETENV("PYTHONMALLOCSTATS"))
@@ -926,6 +927,7 @@ PyObject_Malloc(size_t nbytes)
     poolp pool;
     poolp next;
     uint size;
+    struct alloc_context *context = get_alloc_context();
 
 #ifdef WITH_VALGRIND
     if (UNLIKELY(running_on_valgrind == -1))
@@ -1134,6 +1136,7 @@ PyObject_Free(void *p)
     uint arenaindex_temp;
 #endif
     struct arena_placeholder *ap;
+    struct alloc_context *context = get_alloc_context();
 
     if (p == NULL)      /* free(NULL) has no effect */
         return;
@@ -1324,7 +1327,7 @@ PyObject_Free(void *p)
                       nf > ao->prevarena->nfreepools);
             assert(ao->nextarena == NULL ||
                 ao->nextarena->prevarena == ao);
-            assert((usable_arenas == ao &&
+            assert((context->usable_arenas == ao &&
                 ao->prevarena == NULL) ||
                 ao->prevarena->nextarena == ao);
 
@@ -1374,6 +1377,7 @@ PyObject_Realloc(void *p, size_t nbytes)
 #ifndef Py_USING_MEMORY_DEBUGGER
     uint arenaindex_temp;
 #endif
+    struct alloc_context *context = get_alloc_context();
 
     if (p == NULL)
         return PyObject_Malloc(nbytes);
@@ -1956,6 +1960,7 @@ _PyObject_DebugMallocStats(void)
     /* running total -- should equal narenas * ARENA_SIZE */
     size_t total;
     char buf[128];
+    struct alloc_context *context = get_alloc_context();
 
     fprintf(stderr, "Small block threshold = %d, in %u size classes.\n",
             SMALL_REQUEST_THRESHOLD, numclasses);
