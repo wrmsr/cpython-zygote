@@ -33,3 +33,5 @@ https://github.com/torvalds/linux/commit/ab676b7d6fbf4b294bf198fb27ade5b0e865c7c
 - interactive zygote, python repl
 
 https://github.com/wrmsr/cpython-zygote/compare/master...wrmsr_zygote#files_bucket
+
+http://neugierig.org/software/chromium/notes/2011/08/zygote.html
