@@ -72,6 +72,29 @@ def get_status(pid='self'):
     return d
 
 
+def get_bits(f, t, n):
+    return (n&((1<<(t+1))-1))>>f
+
+def get_bit(c, n):
+    return get_bits(c, c, n)
+    
+
 def get_pagemap(pid='self'):
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
+        n
+        pfn = get_bits(0, 54, n)
+        swap_type = get_bits(0, 4, n)
+        swap_offset = get_bits(5, 54, n)
+        pte_soft_dirty = get_bit(55, n)
+        file_page_or_shared_anon = get_bit(61, n)
+
+        * Bits 0-54  page frame number (PFN) if present
+        * Bits 0-4   swap type if swapped
+        * Bits 5-54  swap offset if swapped
+        * Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
+        * Bits 56-60 zero
+        * Bit  61    page is file-page or shared-anon
+        * Bit  62    page swapped
+        * Bit  63    page present
+
         pass
