@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+import code
 import contextlib
+import errno
+import fcntl
 import logging
 import os
 import signal
 import socket
 import struct
 import sys
+import tempfile
+import threading
+import time
 import traceback
 
 from . import passfd
@@ -36,10 +42,6 @@ def get_sock_cred(conn):
 
 class ZygoteBase(object):
 
-    # exchanged_fds = (0, 1, 2)
-    # forwarded_signals = [getattr(signal, name) for name in dir(signal)
-    #     if name.startswith('SIG')]
-
     exchanged_fds = ()
     forwarded_signals = ()
 
@@ -47,7 +49,7 @@ class ZygoteBase(object):
         super(ZygoteBase, self).__init__()
         self.path = path
         self.original_pid = os.getpid()
-        self.stderr = os.fdopen(os.dup(2), 'w', 0)
+        self.original_stderr = os.fdopen(os.dup(2), 'w', 0)
 
     def set_conn(self, conn):
         self.conn = conn
@@ -59,7 +61,7 @@ class ZygoteBase(object):
         self.output.write(buf)
 
     def read(self):
-        buflen = struct.unpack('L', self.input.read(struct.calcsize('L')))
+        [buflen] = struct.unpack('L', self.input.read(struct.calcsize('L')))
         return self.input.read(buflen)
 
     def writeobj(self, buf):
@@ -67,6 +69,11 @@ class ZygoteBase(object):
 
     def readobj(self):
         return pickle.loads(self.read())
+
+    def exchange_magic(self, conn):
+        conn.send(MAGIC)
+        their_magic = conn.recv(len(MAGIC))
+        return their_magic == MAGIC
 
 
 class ZygoteServer(ZygoteBase):
@@ -81,14 +88,14 @@ class ZygoteServer(ZygoteBase):
     def work(self):
         pass
 
-    def __call__(self):
+    def run(self):
         if os.path.exists(self.path):
             raise ValueError(self.path, 'File already exists')
 
         log.info('Initializing')
         self.init()
 
-        log.info('Binding :: path: %s' % self.path)
+        log.info('Binding :: path: %s' % (self.path,))
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.bind(self.path)
 
@@ -101,18 +108,23 @@ class ZygoteServer(ZygoteBase):
             self.handle_conn(conn)
 
     def handle_conn(self, conn):
+        if not self.exchange_magic(conn):
+            conn.close()
+            log.error('Rejected')
+            return
+
         fork_pid = os.fork()
         if fork_pid:
-            log.info('Forked(1) :: pid: %d' % (fork_pid))
+            log.info('Forked(1) :: pid: %d' % (fork_pid,))
             conn.close()
             os.waitpid(fork_pid, 0)
-            log.info('Forked(1) done :: pid: %d' % (fork_pid))
+            log.info('Forked(1) done :: pid: %d' % (fork_pid,))
             return
 
         if self.daemonize:
             fork_pid = os.fork()
             if fork_pid:
-                log.info('Forked(2) :: pid: %d' % (fork_pid))
+                log.info('Forked(2) :: pid: %d' % (fork_pid,))
                 os._exit(0)
 
         log.info('Serving')
@@ -138,9 +150,13 @@ class ZygoteServer(ZygoteBase):
         self.write(str(os.getpid()))
 
 
+class ZygoteConnectionRefusedException(Exception):
+    pass
+
+
 class ZygoteClient(ZygoteBase):
 
-    def __call__(self):
+    def run(self):
         conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         conn.setsockopt(socket.SOL_SOCKET, socket.SO_PASSCRED, 1)
         conn.connect(self.path)
@@ -152,6 +168,8 @@ class ZygoteClient(ZygoteBase):
 
     def handle_conn(self, conn):
         with contextlib.closing(conn):
+            if not self.exchange_magic(conn):
+                raise ZygoteConnectionRefusedException()
             self.set_conn(conn)
             self.handshake()
             self.install_signal_handlers()
@@ -173,3 +191,105 @@ class ZygoteClient(ZygoteBase):
                 signal.signal(num, handler)
             except Exception as e:
                 pass
+
+
+class InteractiveZygoteBase(object):
+
+    exchanged_fds = ZygoteBase.exchanged_fds + (0, 1, 2)
+    forwarded_signals = ZygoteBase.forwarded_signals + tuple(
+        getattr(signal, name) for name in dir(signal) if name.startswith('SIG'))
+
+    # FIXME better signal propagation = higher reap interval :|
+    DEFAULT_REAP_INTERVAL = 1
+
+    def __init__(self, path, reap_interval=DEFAULT_REAP_INTERVAL, **kwargs):
+        super(InteractiveZygoteBase, self).__init__(path, **kwargs)
+        self.reap_interval = reap_interval
+
+    def setup_deathpact(self):
+        if not self.reap_interval:
+            return
+        my_file, my_file_path = tempfile.mkstemp()
+        fcntl.lockf(my_file, fcntl.LOCK_EX)
+        self.write(my_file_path)
+        their_file_path = self.read()
+        their_file = os.open(their_file_path, os.O_RDWR)
+        self.write('')
+        self.read()
+        os.unlink(my_file_path)
+        def wait():
+            while True:
+                try:
+                    fcntl.lockf(their_file, fcntl.LOCK_EX)
+                except IOError as e:
+                    if e.errno == errno.EDEADLK:
+                        pass
+                    else:
+                        raise
+                else:
+                    log.debug('Deathpact fired')
+                    os._exit(0)
+                time.sleep(self.reap_interval)
+        threading.Thread(target=wait).start()
+
+
+class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
+
+    def __init__(self, path, try_ipython=True, **kwargs):
+        self.try_ipython = try_ipython
+        super(InteractiveZygoteServer, self).__init__(path, **kwargs)
+
+    def handshake(self):
+        super(InteractiveZygoteServer, self).handshake()
+        self.setup_deathpact()
+
+    def work(self):
+        if self.try_ipython:
+            try:
+                import IPython
+            except ImportError:
+                pass
+            else:
+                vers = tuple(map(int, IPython.__version__.split('.')))
+                if vers[0] <= 0 and vers[1] <= 11:
+                    from IPython.Shell import IPShellEmbed
+                    ipshell = IPShellEmbed()
+                    ipshell()
+                else:
+                    IPython.embed()
+                return
+        code.InteractiveConsole(locals=globals()).interact()
+
+
+class InteractiveZygoteClient(InteractiveZygoteBase, ZygoteClient):
+
+    def handshake(self):
+        super(InteractiveZygoteClient, self).handshake()
+        self.setup_deathpact()
+
+    def work(self):
+        while True:
+            signal.pause()  # lel
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+
+    import optparse
+
+    option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog path')
+    option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
+
+    options, args = option_parser.parse_args()
+    if len(args) != 1:
+        option_parser.error('invalid arguments')
+    path, = args
+
+    if options.is_server:
+        InteractiveZygoteServer(path).run()
+    else:
+        InteractiveZygoteClient(path).run()
+
+
+if __name__ == '__main__':
+    main()
