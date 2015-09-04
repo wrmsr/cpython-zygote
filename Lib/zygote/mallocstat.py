@@ -6,13 +6,6 @@ import ctypes
 import hashlib
 import sys
 
-usedpools_addr = ctypes.pythonapi._PyMem_usedpools_addr
-maxarenas_addr = ctypes.pythonapi._PyMem_maxarenas_addr
-arenas_addr = ctypes.pythonapi._PyMem_arenas_addr
-unused_arena_objects_addr = ctypes.pythonapi._PyMem_unused_arena_objects_addr
-usable_arenas_addr = ctypes.pythonapi._PyMem_usable_arenas_addr
-narenas_currently_allocated_addr = ctypes.pythonapi._PyMem_narenas_currently_allocated_addr
-
 
 class pool_header_ref(ctypes.Union):
     _fields_ = [
@@ -112,12 +105,42 @@ arena_object._fields_ = [
 ]
 
 
-pusedpools = ctypes.cast(usedpools_addr, pool_header_pp)
-pmaxarenas = ctypes.cast(maxarenas_addr, ctypes.POINTER(ctypes.c_uint))
-parenas = ctypes.cast(arenas_addr, arena_object_pp)
-punused_arena_objects = ctypes.cast(unused_arena_objects_addr, arena_object_pp)
-pusable_arenas = ctypes.cast(usable_arenas_addr, arena_object_pp)
-pnarenas_currently_allocated = ctypes.cast(narenas_currently_allocated_addr, arena_object_pp)
+class alloc_context(ctypes.Structure):
+    pass
+
+alloc_context_p = ctypes.POINTER(alloc_context)
+alloc_context_pp = ctypes.POINTER(alloc_context_p)
+
+# struct arena_object {
+alloc_context._fields_ = [
+
+    # /* Array of objects used to track chunks of memory (arenas). */
+    # struct arena_object* arenas;
+    ('arenas', arena_object_p),
+
+    # /* Number of slots currently allocated in the `arenas` vector. */
+    # uint maxarenas;
+    ('maxarenas', ctypes.c_uint),
+
+    # /* The head of the singly-linked, NULL-terminated list of available
+    # * arena_objects.
+    # */
+    # struct arena_object* unused_arena_objects;
+    ('unused_arena_objects', arena_object_p),
+
+    # /* The head of the doubly-linked, NULL-terminated at each end, list of
+    # * arena_objects associated with arenas that have pools available.
+    # */
+    # struct arena_object* usable_arenas;
+    ('usable_arenas', arena_object_p),
+
+    # /* Number of arenas allocated that haven't been free()'d. */
+    # size_t narenas_currently_allocated;
+    ('narenas_currently_allocated', ctypes.c_size_t),
+
+    # poolp usedpools[USED_POOL_ARR_SIZE];
+    ('usedpools', ctypes.c_void_p),
+]
 
 
 ALIGNMENT = 8

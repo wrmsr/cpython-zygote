@@ -127,6 +127,7 @@ class ZygoteServer(ZygoteBase):
         self.daemonize = daemonize
         self.reap_interval = reap_interval
         self.child_pids = set()
+        self.last_reap = 0
 
     def setup_deathpact(self):
         self.setup_deathpact_as(True)
@@ -144,6 +145,12 @@ class ZygoteServer(ZygoteBase):
                 self.child_pids.remove(pid)
                 log.info('Reaped :: pid: %d, rc: %d' % (pid, rc))
 
+    def maybe_reap(self):
+        if time.time() - self.last_reap < self.reap_interval:
+            return
+        self.reap()
+        self.last_reap = time.time()
+            
     def run(self):
         if os.path.exists(self.path):
             raise ValueError(self.path, 'File already exists')
@@ -155,31 +162,24 @@ class ZygoteServer(ZygoteBase):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.bind(self.path)
 
-        # FIXME listen w timeout, do this single threaded
-        class _nonlocal(object):
-            reaping = True
-        if not self.daemonize:
-            def reap():
-                while _nonlocal.reaping:
-                    self.reap()
-                    time.sleep(self.reap_interval)
-            reaper = threading.Thread(target=reap).start()
-        else:
-            reaper = None
+        self.sock.listen(1)
+        log.info('Listening')
 
-        try:
-            self.sock.listen(1)
-            log.info('Listening')
-
-            while True:
+        while True:
+            if not self.daemonize:
+                self.maybe_reap()
+                self.sock.settimeout(self.reap_interval)
+                try:
+                    conn, addr = self.sock.accept()
+                except socket.timeout:
+                    continue
+            else:
                 conn, addr = self.sock.accept()
-                log.info('Connection :: pid: %d, uid: %d, gid %d' % get_sock_cred(conn))
-                self.handle_conn(conn)
+            log.info('Connection :: pid: %d, uid: %d, gid %d' % get_sock_cred(conn))
+            self.handle_conn(conn)
 
-        finally:
-            if reaper is not None:
-                _nonlocal.reaping = False
-                reaper.join()
+        if not self.daemonize:
+            self.reap()
 
     def handle_conn(self, conn):
         if not self.exchange_magic(conn):

@@ -560,6 +560,8 @@ struct alloc_context {
     poolp usedpools[USED_POOL_ARR_SIZE];
 };
 
+int _PyMem_USED_POOL_ARR_SIZE = USED_POOL_ARR_SIZE;
+
 void
 initialize_alloc_context(struct alloc_context *ac)
 {

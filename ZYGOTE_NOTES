@@ -9,7 +9,6 @@
 - page analyzer
 - pre-toucher / ideally modify page flags to let it happen naturally in fork()
 - /proc smaps + pagemap
-- https://www.kernel.org/doc/Documentation/vm/pagemap.txt
 - graceful fallback cfg'd in py, already available in ctypes.pythonapi
 - mallocstat can tell which arenas are pinned in py
 - port Py_PINNED to py
@@ -17,8 +16,6 @@
 - ... only things allocated are arenas, maintain freelist
  - sort and shrink
   - naw just double LL, choose least
-- pinstate to just a bool? can pin if contig?
-** count PyObject_Malloc fallbacks
  - fork friendly malloc? alloc all holes?
 - Memory mappings that have been marked with the madvise(2) MADV_DONTFORK flag are not inherited across a fork().
 - configurable bump allocation (for both pymalloc and jemalloc) - uh wow pin use remaining pinned space :||||
@@ -36,5 +33,5 @@ https://github.com/wrmsr/cpython-zygote/compare/master...wrmsr_zygote#files_buck
 
 http://neugierig.org/software/chromium/notes/2011/08/zygote.html
 
-* TODO allocation context struct
+* TODO allocation context struct - threadlocal
 - mp [billiard] worker pool, zmq pool
