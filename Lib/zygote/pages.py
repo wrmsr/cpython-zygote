@@ -89,6 +89,8 @@ def get_range_pagemap(s, e, pid='self'):
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
         f.seek(ofs)
         buf = f.read(sz)
+    if not buf:
+        return
     for i in xrange(npages):
         [n] = struct.unpack('Q', buf[i*8:(i+1)*8])
         yield {
