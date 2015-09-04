@@ -90,7 +90,7 @@ def get_range_pagemap(s, e, pid='self'):
         f.seek(ofs)
         buf = f.read(sz)
     for i, a in enumerate(xrange(s, e, page_size)):
-        n = struct.unpack('Q', buf[i*8, (i+1)*8])
+        n = struct.unpack('Q', buf[i*8:(i+1)*8])
         yield {
             'address': a,
             'pfn': get_bits(0, 54, n),
