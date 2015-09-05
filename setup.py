@@ -566,6 +566,8 @@ class PyBuildExt(build_ext):
         # Some modules that are normally always on:
         #exts.append( Extension('_weakref', ['_weakref.c']) )
 
+        # gc pinning shim
+        exts.append( Extension('_gc_pin_shim', ['_gc_pin_shim.c']) )
         # array objects
         exts.append( Extension('array', ['arraymodule.c']) )
         # complex math library functions

@@ -80,3 +80,10 @@ hitlist:
 - sqlalchemy/cutils
 - _yaml
 - zope/interface/_zope_interface_coptimizations
+
+- importable shim, check pythonapi, load cdll if missing
+- https://github.com/airlift/jvmkill
+ - https://www.kernel.org/doc/Documentation/vm/overcommit-accounting
+ - /proc/meminfo
+ - https://www.kernel.org/doc/Documentation/vm/ lol
+- LD_PRELOAD shim
