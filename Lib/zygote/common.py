@@ -14,6 +14,6 @@ def raw_import(name, pyc_path):
     c = marshal.loads(b[8:])
     m = types.ModuleType(name)
     sys.modules[name] = m
-    m.__dict__['__file__'] = f
+    m.__dict__['__file__'] = pyc_path
     exec c in m.__dict__
     return m
