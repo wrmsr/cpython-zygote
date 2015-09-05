@@ -340,21 +340,22 @@ class InteractiveZygoteClient(InteractiveZygoteBase, ZygoteClient):
 
 
 def main():
-    # FIXME -v
-    # logging.basicConfig(level=logging.INFO)
-
     import optparse
 
     option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog path')
     option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
     option_parser.add_option('-d', '--daemon', dest='is_daemon', action='store_true')
     option_parser.add_option('-t', '--ipython', dest='is_ipython', action='store_true')
+    option_parser.add_option('-v', '--verbose', dest='is_verbose', action='store_true')
     option_parser.add_option('-c', '--cmd', dest='cmd')
 
     options, args = option_parser.parse_args()
     if len(args) != 1:
         option_parser.error('invalid arguments')
     path, = args
+
+    if options.is_verbose:
+        logging.basicConfig(level=logging.INFO)
 
     if options.is_server:
         def init():
