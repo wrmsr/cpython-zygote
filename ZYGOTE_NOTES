@@ -48,3 +48,18 @@ sudo apt-get install libbz2-dev
 break import_submodule if strcmp(fullname, "zope") == 0
 
 worker release policies - rss, time, reqs, blah
+ - PSS
+
+- can cheaply estimate private usage from unpinned pymalloc and jemalloc arenas, can supplement with dirty map
+- dirtymap bitvec? rtree? compressed bitmap per map?
+- ... wsgi over zmq, load balance, can use hybrid thread/process model....
+- become user for interactive via sec cred
+- look at other dynamic threadpool impls
+- nesting... call pin multiple times from different tree lineages, keep allocating contig until sealed..
+- http://celery.readthedocs.org/en/latest/userguide/workers.html#autoscaling
+ - gossip + mingle for version awareness
+- http://celery.readthedocs.org/en/latest/whatsnew-3.1.html
+- http://zguide.zeromq.org/page:all#advanced-request-reply
+- https://zeromq.github.io/pyzmq/eventloop.html#pyzmq-and-gevent
+- java oomkiller rss stupidly is certainly going to be relevant here.
+- broker v freelance - do both
