@@ -150,7 +150,7 @@ class ZygoteServer(ZygoteBase):
             return
         self.reap()
         self.last_reap = time.time()
-            
+
     def run(self):
         if os.path.exists(self.path):
             raise ValueError(self.path, 'File already exists')
@@ -300,6 +300,11 @@ class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
         self.setup_deathpact()
 
     def work(self):
+        cmd = self.read()
+        if cmd:
+            exec cmd in globals(), locals()
+            return
+
         if self.try_ipython:
             try:
                 import IPython
@@ -314,38 +319,51 @@ class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
                 else:
                     IPython.embed()
                 return
+
         code.InteractiveConsole(locals=globals()).interact()
 
 
 class InteractiveZygoteClient(InteractiveZygoteBase, ZygoteClient):
+
+    def __init__(self, path, cmd=None, **kwargs):
+        super(InteractiveZygoteClient, self).__init__(path, **kwargs)
+        self.cmd = cmd
 
     def handshake(self):
         super(InteractiveZygoteClient, self).handshake()
         self.setup_deathpact()
 
     def work(self):
+        self.write(self.cmd or '')
         while True:
             signal.pause()  # lel
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    # FIXME -v
+    # logging.basicConfig(level=logging.INFO)
 
     import optparse
 
     option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog path')
     option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
     option_parser.add_option('-d', '--daemon', dest='is_daemon', action='store_true')
+    option_parser.add_option('-t', '--ipython', dest='is_ipython', action='store_true')
+    option_parser.add_option('-c', '--cmd', dest='cmd')
 
+    # FIXME exec env / globals
     options, args = option_parser.parse_args()
     if len(args) != 1:
         option_parser.error('invalid arguments')
     path, = args
 
     if options.is_server:
-        InteractiveZygoteServer(path, daemonize=options.is_daemon).run()
+        def init():
+            if options.cmd:
+                exec options.cmd in globals(), locals()
+        InteractiveZygoteServer(path, daemonize=options.is_daemon, init=init, try_ipython=options.is_ipython).run()
     else:
-        InteractiveZygoteClient(path).run()
+        InteractiveZygoteClient(path, cmd=options.cmd).run()
 
 
 if __name__ == '__main__':
