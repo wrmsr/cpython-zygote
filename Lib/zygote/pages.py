@@ -219,7 +219,7 @@ def main():
                     continue
                 if cmd == 'dirty_pages' and not pm['pte_soft_dirty']:
                     continue
-                sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
+                sys.stdout.write(json.dumps({'page': format_pm(pm)}, indent=indent))
                 sys.stdout.write('\n')
     if cmd in ['total', 'private_total', 'dirty_total']:
         sys.stdout.write('%d\n' % (total,))
