@@ -1,8 +1,21 @@
 # -*- coding: utf-8 -*-
+"""https://www.kernel.org/doc/Documentation/filesystems/proc.txt"""
 from __future__ import absolute_import
 
 import re
 import struct
+
+
+def parse_size(s):
+    us = {'kB': 1024, 'mB': 1024*1024}
+    v, u = s.split()
+    return int(v) * us[u]
+
+def get_bits(f, t, n):
+    return (n & ((1 << (t + 1)) - 1)) >> f
+
+def get_bit(c, n):
+    return get_bits(c, c, n)
 
 
 STATM_FILE_KEYS = (
@@ -36,15 +49,13 @@ def get_status(pid='self'):
         d['statm'] = dict(zip(STATM_FILE_KEYS, map(int, f.readline().split())))
     with open('/proc/%s/status' % (pid,), 'r') as f:
         s = dict((k.lower(), v.strip()) for k, v in (l.strip().split(':') for l in f.readlines()))
-    us = {'kB': 1024, 'mB': 1024*1024}
     for k in STATUS_FILE_NUM_KEYS:
-        v, u = s[k].split()
-        s[k] = int(v) * us[u]
+        d[k] = parse_size(s[k])
     d['status'] = s
     return d
 
 
-MAP_FILE_RX = re.compile(
+MAP_LINE_RX = re.compile(
     r'^'
     r'(?P<address>[A-Fa-f0-9]+)-(?P<end_address>[A-Fa-f0-9]+)\s+'
     r'(?P<permissions>\S+)\s+'
@@ -54,31 +65,65 @@ MAP_FILE_RX = re.compile(
     r'(?P<path>.*)'
     r'$')
 
-def get_maps(pid='self'):
-    with open('/proc/%s/maps' % (pid,), 'r') as map_file:
-        for line in map_file:
-            m = MAP_FILE_RX.match(line)
+SMAP_SIZE_LINES = (
+    'size',
+    'rss',
+    'pss',
+    'shared_clean',
+    'shared_dirty',
+    'private_clean',
+    'private_dirty',
+    'referenced',
+    'anonymous',
+    'anonhugepages',
+    'swap',
+    'kernelpagesize',
+    'mmupagesize',
+    'locked',
+)
+
+SMAP_LIST_LINES = (
+    'vmflags',
+)
+
+def get_maps(pid='self', sharing=False):
+    with open('/proc/%s/%s' % (pid, 'smaps' if sharing else 'maps'), 'r') as map_file:
+        while True:
+            line = map_file.readline()
+            if not line:
+                break
+            m = MAP_LINE_RX.match(line)
             if not m:
                 raise ValueError(line)
             address = int(m.group('address'), 16)
             end_address = int(m.group('end_address'), 16)
-            yield {
+            d = {
                 'address': address,
                 'end_address': end_address,
                 'size': end_address - address,
-                'permissions': m.group('permissions'),
+                'permissions': [x for x in m.group('permissions') if x != '-'],
                 'offset': int(m.group('offset'), 16),
                 'device': m.group('device'),
                 'inode': int(m.group('inode')),
                 'path': m.group('path')
             }
+            if sharing:
+                s = {}
+                for ek in SMAP_SIZE_LINES:
+                    line = map_file.readline()
+                    k, v = line.split(':')
+                    if k.lower() != ek:
+                        raise ValueError((k, ek))
+                    s[ek] = parse_size(v.strip())
+                for ek in SMAP_LIST_LINES:
+                    line = map_file.readline()
+                    k, v = line.split(':')
+                    if k.lower() != ek:
+                        raise ValueError((k, ek))
+                    s[ek] = [p for p in [j.strip() for j in v.split(' ')] if p]
+                d['sharing'] = s
+            yield d
 
-
-def get_bits(f, t, n):
-    return (n&((1<<(t+1))-1))>>f
-
-def get_bit(c, n):
-    return get_bits(c, c, n)
 
 PAGEMAP_KEYS = (
     'address',
@@ -91,7 +136,7 @@ PAGEMAP_KEYS = (
     'page_present',
 )
 
-def get_range_pagemap(s, e, pid='self'):
+def get_range_pagemaps(s, e, pid='self'):
     page_size = 0x1000
     ofs = (s / page_size) * 8
     npages = ((e - s) / page_size)
@@ -114,9 +159,9 @@ def get_range_pagemap(s, e, pid='self'):
             'page_present': bool(get_bit(63, n)),
         }
 
-def get_pagemap(pid='self'):
+def get_pagemaps(pid='self'):
     for m in get_maps(pid):
-        for p in get_range_pagemap(m['address'], m['end_address'], pid):
+        for p in get_range_pagemaps(m['address'], m['end_address'], pid):
             yield p
 
 
@@ -125,6 +170,7 @@ def main():
     import sys
 
     option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog pid')
+    option_parser.add_option('-f', '--full', dest='is_full', action='store_true')
     option_parser.add_option('-p', '--pickle', dest='is_pickle', action='store_true')
     option_parser.add_option('-m', '--minimal', dest='is_minimal', action='store_true')
     option_parser.add_option('-i', '--indented', dest='is_indented', action='store_true')
@@ -148,8 +194,9 @@ def main():
             import pickle
 
         lst = []
-        for m in get_maps(pid):
-            m['mappings'] = list(map(format_pm, get_range_pagemap(m['address'], m['end_address'], pid)))
+        for m in get_maps(pid, sharing=True):
+            if options.is_full:
+                m['mappings'] = list(map(format_pm, get_range_pagemaps(m['address'], m['end_address'], pid)))
             lst.append(m)
         sys.stdout.write(pickle.dumps(lst))
 
@@ -157,12 +204,13 @@ def main():
         import json
 
         indent = 4 if options.is_indented else None
-        for m in get_maps(pid):
+        for m in get_maps(pid, sharing=True):
             sys.stdout.write(json.dumps({'map': m}, indent=indent))
             sys.stdout.write('\n')
-            for pm in get_range_pagemap(m['address'], m['end_address'], pid):
-                sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
-                sys.stdout.write('\n')
+            if options.is_full:
+                for pm in get_range_pagemaps(m['address'], m['end_address'], pid):
+                    sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
+                    sys.stdout.write('\n')
         sys.stdout.write('\n')
 
 

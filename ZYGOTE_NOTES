@@ -63,3 +63,18 @@ worker release policies - rss, time, reqs, blah
 - https://zeromq.github.io/pyzmq/eventloop.html#pyzmq-and-gevent
 - java oomkiller rss stupidly is certainly going to be relevant here.
 - broker v freelance - do both
+
+http://tldp.org/LDP/tlk/mm/memory.html
+http://tldp.org/LDP/khg/HyperNews/get/memory/linuxmm.html
+
+hitlist:
+- markupsafe/_speedups
+- lxml/etree
+- _mysql
+- pycurl
+- _snappy
+- sqlalchemy/coprocessors
+- sqlalchemy/cresultproxy
+- sqlalchemy/cutils
+- _yaml
+- zope/interface/_zope_interface_coptimizations
