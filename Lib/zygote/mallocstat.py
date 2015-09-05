@@ -113,7 +113,6 @@ alloc_context_pp = ctypes.POINTER(alloc_context_p)
 
 # struct arena_object {
 alloc_context._fields_ = [
-
     # /* Array of objects used to track chunks of memory (arenas). */
     # struct arena_object* arenas;
     ('arenas', arena_object_p),
