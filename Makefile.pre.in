@@ -272,6 +272,15 @@ JEMALLOC_OBJS=  \
 	$(JEMALLOC_PLATFORM_OBJS)
 
 
+##########################################################################
+# Shim
+SHIMSRCS=	\
+		Objects/obmalloc_shim.c
+
+SHIMOBJS=	\
+		Objects/obmalloc_shim.o
+
+
 LIBFFI_INCLUDEDIR=	@LIBFFI_INCLUDEDIR@
 
 ##########################################################################
