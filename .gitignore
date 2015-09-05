@@ -43,6 +43,7 @@ tags
 .coverage
 coverage/
 htmlcov/
+*.sock
 
 .gdb_history
 .purify
