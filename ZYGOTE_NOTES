@@ -72,6 +72,8 @@ hitlist:
 - lxml/etree
 - _mysql
 - pycurl
+- pygear
+- _pylibmc
 - _snappy
 - sqlalchemy/coprocessors
 - sqlalchemy/cresultproxy

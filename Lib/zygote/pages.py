@@ -158,6 +158,7 @@ def get_range_pagemaps(s, e, pid='self'):
             'page_swapped': bool(get_bit(62, n)),
             'page_present': bool(get_bit(63, n)),
         }
+    dump_list = []
 
 def get_pagemaps(pid='self'):
     for m in get_maps(pid):
@@ -166,19 +167,22 @@ def get_pagemaps(pid='self'):
 
 
 def main():
+    import json
     import optparse
     import sys
 
-    option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog pid')
-    option_parser.add_option('-f', '--full', dest='is_full', action='store_true')
-    option_parser.add_option('-p', '--pickle', dest='is_pickle', action='store_true')
+    option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog cmd pid')
+    option_parser.add_option('-p', '--private', dest='is_private', action='store_true')
     option_parser.add_option('-m', '--minimal', dest='is_minimal', action='store_true')
     option_parser.add_option('-i', '--indented', dest='is_indented', action='store_true')
 
     options, args = option_parser.parse_args()
-    if len(args) != 1:
+    if len(args) != 2:
         option_parser.error('invalid arguments')
-    pid, = args
+    cmd, pid = args
+    if cmd not in ['maps', 'pages', 'dirty_pages', 'total', 'private_total']:
+        raise ValueError(cmd)
+    indent = 4 if options.is_indented else None
 
     if options.is_minimal:
         def format_pm(pm):
@@ -187,31 +191,23 @@ def main():
         def format_pm(pm):
             return pm
 
-    if options.is_pickle:
-        try:
-            import cPickle as pickle
-        except ImportError:
-            import pickle
-
-        lst = []
-        for m in get_maps(pid, sharing=True):
-            if options.is_full:
-                m['mappings'] = list(map(format_pm, get_range_pagemaps(m['address'], m['end_address'], pid)))
-            lst.append(m)
-        sys.stdout.write(pickle.dumps(lst))
-
-    else:
-        import json
-
-        indent = 4 if options.is_indented else None
-        for m in get_maps(pid, sharing=True):
+    total = 0
+    for m in get_maps(pid, sharing=True):
+        if cmd in ['maps', 'pages', 'dirty_pages']:
             sys.stdout.write(json.dumps({'map': m}, indent=indent))
             sys.stdout.write('\n')
-            if options.is_full:
-                for pm in get_range_pagemaps(m['address'], m['end_address'], pid):
-                    sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
-                    sys.stdout.write('\n')
-        sys.stdout.write('\n')
+        if cmd == 'total':
+            total += m['sharing']['rss']
+        elif cmd == 'private_total':
+            total += m['sharing']['private_clean'] + m['sharing']['private_dirty']
+        if cmd in ['pages', 'dirty_pages']:
+            for pm in get_range_pagemaps(m['address'], m['end_address'], pid):
+                if cmd == 'dirty_pages' and not pm['pte_soft_dirty']:
+                    continue
+                sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
+                sys.stdout.write('\n')
+    if cmd in ['total', 'private_total']:
+        sys.stdout.write('%d\n' % (total,))
 
 
 if __name__ == '__main__':
