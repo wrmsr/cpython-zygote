@@ -38,3 +38,10 @@ http://neugierig.org/software/chromium/notes/2011/08/zygote.html
 
 sudo apt-get install libbz2-dev
  ./configure --enable-unicode=ucs4
+
+*** failure to import is likely caused by missing __init__.py in parent dirs
+ - *** strace grep .pth - site is fuxcked
+  - site.py is customized on debian :|
+
+break import_submodule if strcmp(fullname, "zope") == 0
+
