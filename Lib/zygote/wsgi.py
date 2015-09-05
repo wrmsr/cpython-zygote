@@ -36,3 +36,20 @@ class WsgiZygoteClient(server.ZygoteClient):
             if not buf:
                 break
             yield buf
+
+
+def main():
+    import optparse
+
+    option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog path')
+    option_parser.add_option('-s', '--server', dest='is_server', action='store_true')
+    option_parser.add_option('-v', '--verbose', dest='is_verbose', action='store_true')
+
+    options, args = option_parser.parse_args()
+    if len(args) != 1:
+        option_parser.error('invalid arguments')
+    path, = args
+
+
+if __name__ == '__main__':
+    main()

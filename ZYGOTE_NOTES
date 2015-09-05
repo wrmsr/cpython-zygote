@@ -45,3 +45,4 @@ sudo apt-get install libbz2-dev
 
 break import_submodule if strcmp(fullname, "zope") == 0
 
+worker release policies - rss, time, reqs, blah
