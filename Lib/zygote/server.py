@@ -302,7 +302,7 @@ class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
     def work(self):
         cmd = self.read()
         if cmd:
-            exec cmd in globals(), locals()
+            exec cmd in globals(), globals()
             return
 
         if self.try_ipython:
@@ -351,7 +351,6 @@ def main():
     option_parser.add_option('-t', '--ipython', dest='is_ipython', action='store_true')
     option_parser.add_option('-c', '--cmd', dest='cmd')
 
-    # FIXME exec env / globals
     options, args = option_parser.parse_args()
     if len(args) != 1:
         option_parser.error('invalid arguments')
@@ -360,7 +359,7 @@ def main():
     if options.is_server:
         def init():
             if options.cmd:
-                exec options.cmd in globals(), locals()
+                exec options.cmd in globals(), globals()
         InteractiveZygoteServer(path, daemonize=options.is_daemon, init=init, try_ipython=options.is_ipython).run()
     else:
         InteractiveZygoteClient(path, cmd=options.cmd).run()
