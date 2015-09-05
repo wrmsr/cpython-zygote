@@ -6,7 +6,7 @@ import marshal
 import types
 
 
-def manual_import(name, pyc_path):
+def raw_import(name, pyc_path):
     if not pyc_path.endswith('.pyc'):
         raise ValueError(pyc_path)
     with open(pyc_path, 'rb') as f:
