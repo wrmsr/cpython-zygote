@@ -6,6 +6,9 @@ import re
 import struct
 
 
+PAGE_SIZE = 0x1000
+
+
 def parse_size(s):
     us = {'kB': 1024, 'mB': 1024*1024}
     v, u = s.split()
@@ -137,9 +140,8 @@ PAGEMAP_KEYS = (
 )
 
 def get_range_pagemaps(s, e, pid='self'):
-    page_size = 0x1000
-    ofs = (s / page_size) * 8
-    npages = ((e - s) / page_size)
+    ofs = (s / PAGE_SIZE) * 8
+    npages = ((e - s) / PAGE_SIZE)
     sz = npages * 8
     with open('/proc/%s/pagemap' % (pid,), 'rb') as f:
         f.seek(ofs)
@@ -149,7 +151,7 @@ def get_range_pagemaps(s, e, pid='self'):
     for i in xrange(npages):
         [n] = struct.unpack('Q', buf[i*8:(i+1)*8])
         yield {
-            'address': s + (i * page_size),
+            'address': s + (i * PAGE_SIZE),
             'pfn': get_bits(0, 54, n),
             'swap_type': get_bits(0, 4, n),
             'swap_offset': get_bits(5, 54, n),
@@ -169,6 +171,7 @@ def get_pagemaps(pid='self'):
 def main():
     import json
     import optparse
+    import os
     import sys
 
     option_parser = optparse.OptionParser(add_help_option=False, usage='usage: %prog cmd pid')
@@ -180,16 +183,24 @@ def main():
     if len(args) != 2:
         option_parser.error('invalid arguments')
     cmd, pid = args
-    if cmd not in ['maps', 'pages', 'dirty_pages', 'total', 'private_total']:
+    if cmd not in ['maps', 'pages', 'dirty_pages', 'clear_dirty', 'total', 'private_total', 'dirty_total']:
         raise ValueError(cmd)
+    if pid == 'self':
+        pid = os.getpid()
+    if str(int(pid)) != str(pid):
+        raise ValueError(pid)
     indent = 4 if options.is_indented else None
-
     if options.is_minimal:
         def format_pm(pm):
             return tuple(pm[k] for k in PAGEMAP_KEYS)
     else:
         def format_pm(pm):
             return pm
+
+    if cmd == 'clear_dirty':
+        with open('/proc/%s/clear_refs' % (pid,), 'w') as f:
+            f.write('4')
+        return
 
     total = 0
     for m in get_maps(pid, sharing=True):
@@ -200,13 +211,17 @@ def main():
             total += m['sharing']['rss']
         elif cmd == 'private_total':
             total += m['sharing']['private_clean'] + m['sharing']['private_dirty']
-        if cmd in ['pages', 'dirty_pages']:
+        if cmd in ['pages', 'dirty_pages', 'dirty_total']:
             for pm in get_range_pagemaps(m['address'], m['end_address'], pid):
+                if cmd == 'dirty_total':
+                    if pm['pte_soft_dirty']:
+                        total += PAGE_SIZE
+                    continue
                 if cmd == 'dirty_pages' and not pm['pte_soft_dirty']:
                     continue
                 sys.stdout.write(json.dumps({'pagemap': format_pm(pm)}, indent=indent))
                 sys.stdout.write('\n')
-    if cmd in ['total', 'private_total']:
+    if cmd in ['total', 'private_total', 'dirty_total']:
         sys.stdout.write('%d\n' % (total,))
 
 
