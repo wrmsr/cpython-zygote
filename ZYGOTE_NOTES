@@ -87,3 +87,6 @@ hitlist:
  - /proc/meminfo
  - https://www.kernel.org/doc/Documentation/vm/ lol
 - LD_PRELOAD shim
+
+
+- modules: mp, zmq, ymalloc, jemalloc, wsgi, g*?
