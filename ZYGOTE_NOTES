@@ -90,3 +90,6 @@ hitlist:
 
 
 - modules: mp, zmq, ymalloc, jemalloc, wsgi, g*?
+
+- Schedule-based autoscaling
+- Metrics-based autoscaling - CPU utilization over the last hour, backlog of messages
