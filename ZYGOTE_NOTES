@@ -93,3 +93,4 @@ hitlist:
 
 - Schedule-based autoscaling
 - Metrics-based autoscaling - CPU utilization over the last hour, backlog of messages
+- https://github.com/zeromq/zbroker
