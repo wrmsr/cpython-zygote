@@ -94,3 +94,8 @@ hitlist:
 - Schedule-based autoscaling
 - Metrics-based autoscaling - CPU utilization over the last hour, backlog of messages
 - https://github.com/zeromq/zbroker
+
+
+- mpsc per process, https://code.google.com/p/hmpi/wiki/SharedHeapAllocator
+ - but who frees on death D:
+  - the reaper ofc
