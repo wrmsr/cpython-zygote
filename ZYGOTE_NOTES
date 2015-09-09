@@ -99,3 +99,5 @@ hitlist:
 - mpsc per process, https://code.google.com/p/hmpi/wiki/SharedHeapAllocator
  - but who frees on death D:
   - the reaper ofc
+ - uh wait neverfucking mind its coarse as fuck just keep a freelist of pages
+  - still need sleep/notify, wtb unsafe.park :<
