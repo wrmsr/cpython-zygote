@@ -117,6 +117,26 @@ libc._raise = libc['raise']
 libc._raise.restype = c_int
 libc._raise.argtypes = [c_int]
 
+if LINUX:
+    libc.EFD_SEMAPHORE = 1,
+    libc.EFD_SEMAPHORE = libc.EFD_SEMAPHORE
+    libc.EFD_CLOEXEC = 02000000,
+    libc.EFD_CLOEXEC = libc.EFD_CLOEXEC
+    libc.EFD_NONBLOCK = 04000
+    libc.EFD_NONBLOCK = libc.EFD_NONBLOCK
+
+    # extern int eventfd (int __count, int __flags) __THROW;
+    libc.eventfd.restype = c_int
+    libc.eventfd.argtypes = [c_int, c_int]
+
+    # extern int eventfd_read (int __fd, eventfd_t *__value);
+    libc.eventfd_read.restype = c_int
+    libc.eventfd_read.argtypes = [c_int, POINTER(c_uint64)]
+
+    # extern int eventfd_write (int __fd, eventfd_t __value);
+    libc.eventfd_write.restype = c_int
+    libc.eventfd_write.argtypes = [c_int, c_uint64]
+
 def sigtrap():
     libc._raise(signal.SIGTRAP)
 
