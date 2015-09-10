@@ -23,11 +23,23 @@ else:
 libc.malloc.restype = c_void_p
 libc.malloc.argtypes = [c_size_t]
 
-libc.free.restype = c_void_p
+libc.free.restype = None
 libc.free.argtypes = [c_void_p]
 
+# void *memcpy(void *dest, const void *src, size_t n);
+libc.memcpy.restype = c_void_p
+libc.memcpy.argtypes = [c_void_p, c_void_p, c_size_t]
+
+# void *memset(void *s, int c, size_t n);
+libc.memset.restype = c_void_p
+libc.memset.argtypes = [c_void_p, c_int, c_size_t]
+
+# int memcmp(const void *s1, const void *s2, size_t n);
+libc.memcmp.restype = c_int
+libc.memcmp.argtypes = [c_void_p, c_void_p, c_size_t]
+
 # void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-libc.mmap.restype = c_void_p
+libc.mmap.restype = None
 libc.mmap.argtypes = [c_void_p, c_size_t, c_int, c_int, c_int, c_size_t]
 
 # int munmap(void *addr, size_t length);
