@@ -569,6 +569,7 @@ class PyBuildExt(build_ext):
         # gc pinning shim
         exts.append( Extension('_gc_pin_shim', ['_gc_pin_shim.c']) )
 
+        # _lfds
         exts.append(Extension(
             '_lfds', [
                 'Modules/_lfds.c',
