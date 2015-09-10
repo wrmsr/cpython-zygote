@@ -38,32 +38,32 @@ libc.munmap.argtypes = [c_void_p, c_size_t]
 libc.mprotect.restype = c_int
 libc.mprotect.argtypes = [c_void_p, c_size_t, c_int]
 
-libc.PROT_READ		= 0x1			# Page can be read.
-libc.PROT_WRITE		= 0x2			# Page can be written.
-libc.PROT_EXEC		= 0x4			# Page can be executed.
-libc.PROT_NONE		= 0x0			# Page can not be accessed.
-libc.PROT_GROWSDOWN	= 0x01000000	# Extend change to start of growsdown vma (mprotect only).
-libc.PROT_GROWSUP	= 0x02000000	# Extend change to start of growsup vma (mprotect only).
+libc.PROT_READ        = 0x1           # Page can be read.
+libc.PROT_WRITE       = 0x2           # Page can be written.
+libc.PROT_EXEC        = 0x4           # Page can be executed.
+libc.PROT_NONE        = 0x0           # Page can not be accessed.
+libc.PROT_GROWSDOWN   = 0x01000000    # Extend change to start of growsdown vma (mprotect only).
+libc.PROT_GROWSUP     = 0x02000000    # Extend change to start of growsup vma (mprotect only).
 
-libc.MAP_SHARED		= 0x01			# Share changes.
-libc.MAP_PRIVATE		= 0x02			# Changes are private.
-libc.MAP_GROWSDOWN	= 0x00100		# Stack-like segment.
-libc.MAP_DENYWRITE	= 0x00800		# ETXTBSY
-libc.MAP_EXECUTABLE	= 0x01000		# Mark it as an executable.
-libc.MAP_LOCKED		= 0x02000		# Lock the mapping.
-libc.MAP_NORESERVE	= 0x04000		# Don't check for reservations.
-libc.MAP_POPULATE	= 0x08000		# Populate (prefault) pagetables.
-libc.MAP_NONBLOCK	= 0x10000		# Do not block on IO.
-libc.MAP_STACK		= 0x20000		# Allocation is for a stack.
-libc.MAP_HUGETLB		= 0x40000		# create a huge page mapping
+libc.MAP_SHARED       = 0x01           # Share changes.
+libc.MAP_PRIVATE      = 0x02           # Changes are private.
+libc.MAP_GROWSDOWN    = 0x00100        # Stack-like segment.
+libc.MAP_DENYWRITE    = 0x00800        # ETXTBSY
+libc.MAP_EXECUTABLE   = 0x01000        # Mark it as an executable.
+libc.MAP_LOCKED       = 0x02000        # Lock the mapping.
+libc.MAP_NORESERVE    = 0x04000        # Don't check for reservations.
+libc.MAP_POPULATE     = 0x08000        # Populate (prefault) pagetables.
+libc.MAP_NONBLOCK     = 0x10000        # Do not block on IO.
+libc.MAP_STACK        = 0x20000        # Allocation is for a stack.
+libc.MAP_HUGETLB      = 0x40000        # create a huge page mapping
 
 # int msync(void *addr, size_t length, int flags);
 libc.msync.restype = c_int
 libc.msync.argtypes = [c_void_p, c_size_t, c_int]
 
-libc.MS_ASYNC		= 1		# Sync memory asynchronously.
-libc.MS_SYNC			= 4		# Synchronous memory sync.
-libc.MS_INVALIDATE	= 2		# Invalidate the caches.
+libc.MS_ASYNC         = 1        # Sync memory asynchronously.
+libc.MS_SYNC          = 4        # Synchronous memory sync.
+libc.MS_INVALIDATE    = 2        # Invalidate the caches.
 
 # int mlock(const void *addr, size_t len);
 libc.mlock.restype = c_int
@@ -81,24 +81,24 @@ libc.mlockall.argtypes = [c_int]
 libc.munlockall.restype = c_int
 libc.munlockall.argtypes = []
 
-libc.MCL_CURRENT	= 1		# Lock all currently mapped pages.
-libc.MCL_FUTURE	= 2		# Lock all additions to address space.
+libc.MCL_CURRENT    = 1        # Lock all currently mapped pages.
+libc.MCL_FUTURE     = 2        # Lock all additions to address space.
 
 # void *mremap(void *old_address, size_t old_size, size_t new_size, int flags);
 libc.mremap.restype = c_void_p
 libc.mremap.argtypes = [c_void_p, c_size_t, c_size_t, c_int]
 
-libc.MREMAP_MAYMOVE	= 1
-libc.MREMAP_FIXED	= 2
+libc.MREMAP_MAYMOVE    = 1
+libc.MREMAP_FIXED    = 2
 
 # ssize_t splice(int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len, unsigned int flags);
 libc.splice.restype = c_size_t
 libc.splice.argtypes = [c_int, POINTER(c_size_t), c_int, POINTER(c_size_t), c_size_t, c_uint]
 
-libc.SPLICE_F_MOVE		= 1		# Move pages instead of copying.
-libc.SPLICE_F_NONBLOCK	= 2		# Don't block on the pipe splicing (but we may still block on the fd we splice from/to).
-libc.SPLICE_F_MORE		= 4		# Expect more data.
-libc.SPLICE_F_GIFT		= 8		# Pages passed in are a gift.
+libc.SPLICE_F_MOVE        = 1        # Move pages instead of copying.
+libc.SPLICE_F_NONBLOCK    = 2        # Don't block on the pipe splicing (but we may still block on the fd we splice from/to).
+libc.SPLICE_F_MORE        = 4        # Expect more data.
+libc.SPLICE_F_GIFT        = 8        # Pages passed in are a gift.
 
 # int raise(int sig);
 libc._raise = libc['raise']
