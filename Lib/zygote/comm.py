@@ -2,8 +2,9 @@
 from __future__ import absolute_import
 
 import ctypes
+import resource
 
-libc = ctypes.CDLL('libc.so.6')
+from . import libc
 
 class page(ctypes.Structure):
     pass
@@ -17,7 +18,9 @@ page_p._fields_ = [
 ]
 
 def main():
-    pass
+    page_size = resource.getpagesize()
+    with libc.Malloc(page_size * 4) as mem:
+        pass
 
 if __name__ == '__main__':
     main()

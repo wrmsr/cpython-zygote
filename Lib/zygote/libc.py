@@ -5,6 +5,12 @@ from ctypes import *
 
 libc = CDLL('libc.so.6')
 
+libc.malloc.restype = c_void_p
+libc.malloc.argtypes = [c_size_t]
+
+libc.free.restype = c_void_p
+libc.free.argtypes = [c_void_p]
+
 # void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 libc.mmap.restype = c_void_p
 libc.mmap.argtypes = [c_void_p, c_size_t, c_int, c_int, c_int, c_size_t]
@@ -84,7 +90,6 @@ libc._raise = libc['raise']
 libc._raise.restype = c_int
 libc._raise.argtypes = [c_int]
 
-
 def sigtrap():
     libc._raise(signal.SIGTRAP)
 
@@ -98,7 +103,8 @@ class Malloc(object):
         self.base = libc.malloc(self.sz)
 
     def __exit__(self, et, e, tb):
-        libc.free(self.base)
+        if self.base != 0:
+            libc.free(self.base)
         self.base = 0
 
     def __int__(self):
