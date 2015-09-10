@@ -68,11 +68,11 @@ MAKESETUP=      $(srcdir)/Modules/makesetup
 # Compiler options
 OPT=		@OPT@
 BASECFLAGS=	@BASECFLAGS@
-CFLAGS=		$(BASECFLAGS) @CFLAGS@ $(OPT) $(EXTRA_CFLAGS) -std=gnu99 -funroll-loops -D_REENTRANT -pipe -D_GNU_SOURCE
+CFLAGS=		$(BASECFLAGS) @CFLAGS@ $(OPT) $(EXTRA_CFLAGS) -std=gnu99 -funroll-loops -D_REENTRANT -pipe -D_GNU_SOURCE -finline-functions
 # Both CPPFLAGS and LDFLAGS need to contain the shell's value for setup.py to
 # be able to build extension modules using the directories specified in the
 # environment variables
-CPPFLAGS=	-I. -IInclude -Ijemalloc/include -I$(srcdir)/Include @CPPFLAGS@
+CPPFLAGS=	-I. -IInclude -Ijemalloc/include -Iliblfds6.1.1/liblfds611/inc -Iliblfds6.1.1/liblfds611/src -I$(srcdir)/Include @CPPFLAGS@
 LDFLAGS=	@LDFLAGS@
 LDLAST=		@LDLAST@
 SGI_ABI=	@SGI_ABI@
@@ -273,6 +273,37 @@ JEMALLOC_OBJS=  \
 
 
 ##########################################################################
+# libldfs
+
+LIBLDFS_OBJS=  \
+	liblfds6.1.1/liblfds611/src/lfds611_abstraction/lfds611_abstraction_free.o \
+	liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_delete.o \
+	liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_get_and_set.o \
+	liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_new.o \
+	liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_pop_push.o \
+	liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_query.o \
+	liblfds6.1.1/liblfds611/src/lfds611_liblfds/lfds611_liblfds_abstraction_test_helpers.o \
+	liblfds6.1.1/liblfds611/src/lfds611_liblfds/lfds611_liblfds_aligned_free.o \
+	liblfds6.1.1/liblfds611/src/lfds611_liblfds/lfds611_liblfds_aligned_malloc.o \
+	liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_delete.o \
+	liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_new.o \
+	liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_query.o \
+	liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_queue.o \
+	liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_delete.o \
+	liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_get_and_put.o \
+	liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_new.o \
+	liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_query.o \
+	liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_delete.o \
+	liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_get_and_set.o \
+	liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_link.o \
+	liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_new.o \
+	liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_delete.o \
+	liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_new.o \
+	liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_push_pop.o \
+	liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_query.o
+
+
+##########################################################################
 # Shim
 SHIMSRCS=	\
 		Objects/obmalloc_shim.c
@@ -400,7 +431,8 @@ PYTHON_OBJS=	\
 		$(LIBOBJS) \
 		$(MACHDEP_OBJS) \
 		$(THREADOBJ) \
-		$(JEMALLOC_OBJS)
+		$(JEMALLOC_OBJS) \
+        $(LIBLDFS_OBJS)
 
 
 ##########################################################################
