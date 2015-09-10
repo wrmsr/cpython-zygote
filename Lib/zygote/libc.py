@@ -1,9 +1,24 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+import sys
+
 from ctypes import *
 
-libc = CDLL('libc.so.6')
+LINUX_PLATFORMS = ('linux', 'linux2')
+DARWIN_PLATFORMS = ('darwin',)
+
+LINUX = False
+DARWIN = False
+
+if sys.platform in LINUX_PLATFORMS:
+    libc = CDLL('libc.so.6')
+    LINUX = True
+elif sys.platform in DARWIN_PLATFORMS:
+    libc = CDLL('/usr/lib/libc.dylib')
+    DARWIN = True
+else:
+    raise EnvironmentError('Unsupported platform')
 
 libc.malloc.restype = c_void_p
 libc.malloc.argtypes = [c_size_t]
