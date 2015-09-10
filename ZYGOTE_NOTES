@@ -101,4 +101,5 @@ hitlist:
   - the reaper ofc
  - uh wait neverfucking mind its coarse as fuck just keep a freelist of pages
   - with dense ownership pid table for reaper cleanup
+   - *two* owner pids for transfer
   - still need sleep/notify, wtb unsafe.park :<
