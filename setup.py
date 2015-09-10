@@ -568,6 +568,43 @@ class PyBuildExt(build_ext):
 
         # gc pinning shim
         exts.append( Extension('_gc_pin_shim', ['_gc_pin_shim.c']) )
+
+        exts.append(Extension(
+            '_lfds', [
+                'Modules/_lfds.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_abstraction/lfds611_abstraction_malloc.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_abstraction/lfds611_abstraction_free.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_delete.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_get_and_set.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_new.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_pop_push.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_freelist/lfds611_freelist_query.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_liblfds/lfds611_liblfds_abstraction_test_helpers.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_liblfds/lfds611_liblfds_aligned_free.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_liblfds/lfds611_liblfds_aligned_malloc.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_delete.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_new.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_query.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_queue/lfds611_queue_queue.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_delete.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_get_and_put.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_new.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_ringbuffer/lfds611_ringbuffer_query.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_delete.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_get_and_set.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_link.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_slist/lfds611_slist_new.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_delete.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_new.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_push_pop.c',
+                'liblfds6.1.1/liblfds611/src/lfds611_stack/lfds611_stack_query.c',
+            ],
+            include_dirs=[
+                'liblfds6.1.1/liblfds611/inc',
+                'liblfds6.1.1/liblfds611/src',
+            ]
+        ))
+
         # array objects
         exts.append( Extension('array', ['arraymodule.c']) )
         # complex math library functions
