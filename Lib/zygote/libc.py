@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-libc = ctypes.CDLL('libc.so.6')
+from ctypes import *
+
+libc = CDLL('libc.so.6')
 
 # void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 libc.mmap.restype = c_void_p

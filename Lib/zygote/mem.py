@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-from ctypes import pythonapi
+from ctypes import *
 
 pythonapi.PyBuffer_FromMemory.restype = py_object
 pythonapi.PyBuffer_FromMemory.argtypes = [c_void_p, c_size_t]
