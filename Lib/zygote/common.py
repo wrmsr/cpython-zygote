@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import sys
 import marshal
+import sys
 import types
-
 
 def raw_import(pyc_path, name, package=None, builtins=None):
     if not pyc_path.endswith('.pyc'):
@@ -23,3 +22,4 @@ def raw_import(pyc_path, name, package=None, builtins=None):
     )
     exec c in m.__dict__
     return m
+

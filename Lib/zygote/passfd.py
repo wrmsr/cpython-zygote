@@ -13,13 +13,17 @@ ctypes.c_ssize_t = ctypes.c_size_t
 
 libc = ctypes.CDLL('libc.so.6')
 
-class iovec(ctypes.Structure): pass
+class iovec(ctypes.Structure):
+    pass
+
 iovec._fields_ = [
     ('iov_base', ctypes.c_void_p),  # Pointer to data.
     ('iov_len', ctypes.c_size_t),   # Length of data.
 ]
 
-class msghdr(ctypes.Structure): pass
+class msghdr(ctypes.Structure):
+    pass
+
 msghdr._fields_ = [
     ('msg_name', ctypes.c_void_p),        # Address to send to/receive from.
     ('msg_namelen', ctypes.c_uint),       # Length of address data.
@@ -32,7 +36,9 @@ msghdr._fields_ = [
     ('msg_flags', ctypes.c_int),          # Flags on received message.
 ]
 
-class cmsghdr(ctypes.Structure): pass
+class cmsghdr(ctypes.Structure):
+    pass
+
 cmsghdr._fields_ = [
     ('cmsg_len', ctypes.c_size_t),  # Length of data in cmsg_data plus length
                                     # of cmsghdr structure. !! The type should be socklen_t but the

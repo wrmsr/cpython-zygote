@@ -9,25 +9,48 @@ from . import server
 log = logging.getLogger(__name__)
 
 
-class WsgiZygoteServer(server.ZygoteServer):
+class WsgiZygoteServer(ZygoteServer):
 
     def __init__(self, path, app, **kwargs):
         super(WsgiZygoteServer, self).__init__(path, **kwargs)
+        self.app = app
+
+    def handshake(self):
+        super(WsgiZygoteServer, self).handshake()
+        self.setup_deathpact()
 
     def work(self):
         while True:
-            environ = self.writeobj()
+            environ = self.readobj()
+            if 'wsgi.input' in environ:
+                environ['wsgi.input'] = cStringIO.StringIO(environ['wsgi.input'])
+            if 'wsgi.errors' in environ:
+                environ['wsgi.errors'] = log
             def start_response(status, response_headers, exc_info=None):
                 self.writeobj(status)
                 self.writeobj(response_headers)
                 self.writeobj(exc_info)
-            for buf in self.application(environ, start_response):
-                self.write(buf)
+            try:
+                for buf in self.app(environ, start_response):
+                    self.write(buf)
+            except Exception as e:
+                log.error(repr(e))
+            self.write('')
 
 
-class WsgiZygoteClient(server.ZygoteClient):
+class WsgiZygoteClient(ZygoteClient):
+
+    def handshake(self):
+        super(WsgiZygoteClient, self).handshake()
+        self.setup_deathpact()
 
     def __call__(self, environ, start_response):
+        if 'wsgi.input' in environ:
+            environ['wsgi.input'] = environ['wsgi.input'].read()
+        if 'wsgi.errors' in environ:
+            environ['wsgi.errors'] = None
+        if 'wsgi.file_wrapper' in environ:
+            del environ['wsgi.file_wrapper']
         self.writeobj(environ)
         status, response_headers, exc_info = self.readobj(), self.readobj(), self.readobj()
         start_response(status, response_headers, exc_info)
