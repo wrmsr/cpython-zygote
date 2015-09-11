@@ -27,7 +27,7 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-MAGIC = 'zygote425f637d16cb47008223fbc983fdce61'
+MAGIC = 'zygote-425f637d16cb47008223fbc983fdce61\n'
 
 
 if not hasattr(fcntl, 'F_SETPIPE_SZ'):
