@@ -620,6 +620,7 @@ _PyMem_SetupContiguousAllocation(size_t narenas)
     // FIXME: bytes
     int i;
     void *address;
+    size_t sz = narenas * ARENA_SIZE;
 
 #ifndef ARENAS_USE_MMAP
     Py_FatalError(
@@ -627,7 +628,7 @@ _PyMem_SetupContiguousAllocation(size_t narenas)
 #else
 
     assert(sizeof(struct arena_placeholder) == ARENA_SIZE);
-    address = mmap(NULL, narenas * ARENA_SIZE, PROT_READ|PROT_WRITE,
+    address = mmap(NULL, sz, PROT_READ|PROT_WRITE,
                 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 
     if (address == MAP_FAILED)
@@ -637,12 +638,14 @@ _PyMem_SetupContiguousAllocation(size_t narenas)
     contiguous_head = (struct arena_placeholder *) address;
     for (i = 0; i < (narenas - 1); ++i)
         contiguous_head[i].next = &contiguous_head[i + 1];
+
     _PyMem_ContiguousBase = address;
+    _PyMem_ContiguousEnd = address + sz;
 
 #endif
 }
 
-void *
+static void *
 acquire_contiguous_arena(void)
 {
     struct arena_placeholder *cur = contiguous_head;

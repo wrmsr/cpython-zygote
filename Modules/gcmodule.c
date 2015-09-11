@@ -1111,10 +1111,11 @@ gc_pin(PyObject *self, PyObject *noargs)
     PyGC_Head *gc_list;
     PyGC_Head *gc;
     int gc_head_count = 0;
-    int pinned_gc_head_count = 0;
     PyObject *op;
     PyGC_PinnedHead *pgc;
     struct pinned_gc_head_placeholder *pgcp;
+    PyGC_Head *l;
+    PyGC_Head *r;
 
     if (_PyMem_PinnedBase != NULL) {
         PyErr_SetString(PyExc_EnvironmentError, "already pinned");
@@ -1130,14 +1131,18 @@ gc_pin(PyObject *self, PyObject *noargs)
     collect(NUM_GENERATIONS-1);
     collecting = 0;
 
-    // FIXME CHECK PY_PINNED RANGE FOR OBJECTS, GC LIST MAY NOT BE EMPTY
     // return pinned object count :3
 
-    /*
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
         for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
-            gc_head_count++;
+            if (Py_CONTIGUOUS(gc))
+                gc_head_count++;
+    }
+
+    if (gc_head_count < 1) {
+        PyErr_SetString(PyExc_EnvironmentError, "no pinned objects");
+        return NULL;
     }
 
     pgc = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
@@ -1152,6 +1157,9 @@ gc_pin(PyObject *self, PyObject *noargs)
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
         for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+            if (!Py_CONTIGUOUS(gc))
+                continue;
+
             op = FROM_GC(gc);
 
             gc->gc.gc_prev->gc.gc_next = gc->gc.gc_next;
@@ -1168,21 +1176,18 @@ gc_pin(PyObject *self, PyObject *noargs)
         }
     }
 
-    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
-        gc_list = GEN_HEAD(gen);
-        if (gc_list.gc.gc_next != &gc_list.gc || gc_list.gc.gc_prev != &gc_list.gc)
-            Py_FatalError("pinned object drain failure");
-    }
+    assert(i == gc_head_count);
+    l = GEN_HEAD(NUM_GENERATIONS-1);
+    r = l->gc.gc_next;
 
-    gc_list = GEN_HEAD(NUM_GENERATIONS-1);
-    gc_list.gc.gc_next = &pgc[i].head;
-    pgc[i].head.gc_prev = &gc_list.gc;
-    gc_list.gc.gc_prev = &pgc[gc_head_count - 1].head;
-    pgc[gc_head_count - 1].head.gc_next = &gc_list.gc;
-    */
+    l->gc.gc_next = &pgc[0].head;
+    pgc[0].head.gc.gc_prev = l;
+
+    r->gc.gc_prev = &pgc[i-1].head;
+    pgc[i-1].head.gc.gc_next = r;
 
     _PyGC_PinnedHeadBase = pgc;
-    _PyGC_PinnedHeadBase = &pgc[gc_head_count];
+    _PyGC_PinnedHeadEnd = &pgc[i];
     _PyMem_PinnedBase = _PyMem_ContiguousBase;
     _PyMem_PinnedEnd = _PyMem_ContiguousEnd;
     _PyMem_ContiguousBase = NULL;
@@ -1191,15 +1196,6 @@ gc_pin(PyObject *self, PyObject *noargs)
     collecting = 1;
     collect(NUM_GENERATIONS-1);
     collecting = 0;
-
-    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
-        gc_list = GEN_HEAD(gen);
-        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
-            pinned_gc_head_count++;
-    }
-
-    if (pinned_gc_head_count != gc_head_count)
-        Py_FatalError("pinned object count mismatch");
 
     Py_INCREF(Py_None);
     return Py_None;
