@@ -638,6 +638,7 @@ _PyMem_SetupContiguousAllocation(size_t narenas)
     contiguous_head = (struct arena_placeholder *) address;
     for (i = 0; i < (narenas - 1); ++i)
         contiguous_head[i].next = &contiguous_head[i + 1];
+    contiguous_head[i].next = NULL;
 
     _PyMem_ContiguousBase = address;
     _PyMem_ContiguousEnd = address + sz;
@@ -650,7 +651,7 @@ acquire_contiguous_arena(void)
 {
     struct arena_placeholder *cur = contiguous_head;
     struct arena_placeholder *prev = NULL;
-    struct arena_placeholder *winner = NULL;
+    struct arena_placeholder *winner = cur;
     struct arena_placeholder *winner_prev = NULL;
 
     while (cur != NULL) {
@@ -673,6 +674,8 @@ acquire_contiguous_arena(void)
     memset(winner, 0, ARENA_SIZE);
     return (void *) winner;
 }
+
+static int has_warned_about_contiguous_failure = 0;
 
 /* Allocate a new arena.  If we run out of memory, return NULL.  Else
  * allocate a new arena, and return the address of an arena_object
@@ -746,7 +749,10 @@ new_arena(void)
             if (!_PyMem_ContiguousAllocationFallback)
                 return NULL;
             else {
-                // FIXME: warn
+                if (!has_warned_about_contiguous_failure) {
+                    fprintf(stderr, "WARNING: Contiguous allocation fallback\n");
+                    has_warned_about_contiguous_failure = 1;
+                }
             }
         }
     }
@@ -1211,13 +1217,6 @@ PyObject_Free(void *p)
              * 4. Else there's nothing more to do.
              */
             if (nf == ao->ntotalpools) {
-                if (Py_CONTIGUOUS(ao->address)) {
-                    ap = (struct arena_placeholder *) ao->address;
-                    ap->next = contiguous_head;
-                    contiguous_head = ap;
-                    return;
-                }
-
                 /* Case 1.  First unlink ao from usable_arenas.
                  */
                 assert(ao->prevarena == NULL ||
@@ -1252,7 +1251,13 @@ PyObject_Free(void *p)
 
                 /* Free the entire arena. */
 #ifdef ARENAS_USE_MMAP
-                munmap((void *)ao->address, ARENA_SIZE);
+                if (Py_CONTIGUOUS(ao->address)) {
+                    ap = (struct arena_placeholder *) ao->address;
+                    ap->next = contiguous_head;
+                    contiguous_head = ap;
+                }
+                else
+                    munmap((void *)ao->address, ARENA_SIZE);
 #else
                 free((void *)ao->address);
 #endif

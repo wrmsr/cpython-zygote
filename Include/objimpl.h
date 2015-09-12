@@ -271,12 +271,15 @@ extern PyGC_PinnedHead *_PyGC_PinnedHeadEnd;
 #define Py_PINNED_GC(p)                         \
     ((void *) p >= (void *) _PyGC_PinnedHeadBase && (void *) p < (void *) _PyGC_PinnedHeadEnd)
 
-
-#define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
+#define _Py_AS_GC(o) (Py_PINNED(o) ? *((PyGC_Head **) ((PyGC_Head *)(o)-1)) : (PyGC_Head *)(o)-1)
 
 #define _PyGC_REFS_UNTRACKED                    (-2)
 #define _PyGC_REFS_REACHABLE                    (-3)
 #define _PyGC_REFS_TENTATIVELY_UNREACHABLE      (-4)
+#define _PyGC_REFS_SEEN                         (-5)
+#define _PyGC_REFS_SEEN_UNTRACKED               (-6)
+#define _PyGC_REFS_SEEN_REACHABLE               (-7)
+#define _PyGC_REFS_RELOCATED                    (-8)
 
 /* Tell the GC to track this object.  NB: While the object is tracked the
  * collector it must be safe to call the ob_traverse method. */

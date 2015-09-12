@@ -1099,6 +1099,117 @@ gc_isenabled(PyObject *self, PyObject *noargs)
     return PyBool_FromLong((long)enabled);
 }
 
+static int
+gc_pin_see_object(PyObject *op)
+{
+    PyGC_Head *gc;
+    if (!PyObject_IS_GC(op))
+        return 0;
+    gc = AS_GC(op);
+    if (gc->gc.gc_refs == 0) {
+        gc->gc.gc_refs = _PyGC_REFS_SEEN;
+        return 1;
+    }
+    else if (gc->gc.gc_refs == _PyGC_REFS_UNTRACKED) {
+        gc->gc.gc_refs = _PyGC_REFS_SEEN_UNTRACKED;
+        return 1;
+    }
+    else if (gc->gc.gc_refs == _PyGC_REFS_REACHABLE) {
+        gc->gc.gc_refs = _PyGC_REFS_SEEN_REACHABLE;
+        return 1;
+    }
+    else if (gc->gc.gc_refs !=_PyGC_REFS_SEEN &&
+             gc->gc.gc_refs != _PyGC_REFS_SEEN_UNTRACKED &&
+             gc->gc.gc_refs != _PyGC_REFS_SEEN_REACHABLE) {
+        Py_FatalError("unknown gc_refs");
+        return 0;
+    }
+    else
+        return 0;
+}
+
+static int
+gc_pin_unsee_object(PyObject *op)
+{
+    PyGC_Head *gc;
+    if (!PyObject_IS_GC(op))
+        return 0;
+    gc = AS_GC(op);
+    if (gc->gc.gc_refs == _PyGC_REFS_SEEN) {
+        gc->gc.gc_refs = 0;
+        return 1;
+    }
+    else if (gc->gc.gc_refs == _PyGC_REFS_SEEN_UNTRACKED) {
+        gc->gc.gc_refs = _PyGC_REFS_UNTRACKED;
+        return 1;
+    }
+    else if (gc->gc.gc_refs == _PyGC_REFS_SEEN_REACHABLE) {
+        gc->gc.gc_refs = _PyGC_REFS_REACHABLE;
+        return 1;
+    }
+    else if (gc->gc.gc_refs != 0 &&
+             gc->gc.gc_refs != _PyGC_REFS_UNTRACKED &&
+             gc->gc.gc_refs != _PyGC_REFS_REACHABLE) {
+        Py_FatalError("unknown gc_refs");
+        return 0;
+    }
+    else
+        return 0;
+}
+
+static int
+gc_pin_traverse1(PyObject *op, size_t *count)
+{
+    assert(op != NULL);
+    if (Py_CONTIGUOUS(op) && gc_pin_see_object(op))
+        *count += 1;
+    return 0;
+}
+
+static int
+gc_pin_traverse2(PyObject *op, size_t *count)
+{
+    assert(op != NULL);
+    if (Py_CONTIGUOUS(op) && gc_pin_unsee_object(op))
+        *count += 1;
+    return 0;
+}
+
+struct gc_pin_traverse3_state {
+    PyGC_PinnedHead *pgc;
+    int i;
+};
+
+static int
+gc_pin_traverse3(PyObject *op, struct gc_pin_traverse3_state *state)
+{
+    PyGC_Head *gc;
+    struct pinned_gc_head_placeholder *pgcp;
+
+    if (Py_CONTIGUOUS(op) && gc->gc.gc_refs != _PyGC_REFS_RELOCATED) {
+        gc = AS_GC(op);
+
+        if (gc->gc.gc_next != NULL) {
+            gc->gc.gc_next->gc.gc_prev = gc->gc.gc_prev;
+            gc->gc.gc_prev->gc.gc_next = gc->gc.gc_next;
+        }
+        else
+            gc->gc.gc_prev = NULL;
+
+        state->pgc[state->i].head.gc.gc_refs = gc->gc.gc_refs;
+        state->pgc[state->i].object = op;
+
+        pgcp = (struct pinned_gc_head_placeholder *) gc;
+        memset(pgcp, 0, sizeof(struct pinned_gc_head_placeholder));
+        pgcp->pgc = &state->pgc[state->i];
+        gc->gc.gc_refs = _PyGC_REFS_RELOCATED;
+
+        state->i++;
+    }
+
+    return 0;
+}
+
 PyDoc_STRVAR(gc_pin__doc__,
 "pin() -> None\n"
 "\n"
@@ -1110,12 +1221,17 @@ gc_pin(PyObject *self, PyObject *noargs)
     int i, gen;
     PyGC_Head *gc_list;
     PyGC_Head *gc;
-    int gc_head_count = 0;
+    PyGC_Head *tmp;
+    size_t gc_head_count = 0;
+    size_t gc_head_count_check = 0;
     PyObject *op;
     PyGC_PinnedHead *pgc;
-    struct pinned_gc_head_placeholder *pgcp;
     PyGC_Head *l;
     PyGC_Head *r;
+    traverseproc traverse;
+    struct gc_pin_traverse3_state state;
+    PyGC_Head **x;
+    size_t xs = 0;
 
     if (_PyMem_PinnedBase != NULL) {
         PyErr_SetString(PyExc_EnvironmentError, "already pinned");
@@ -1135,13 +1251,32 @@ gc_pin(PyObject *self, PyObject *noargs)
 
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
-        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
-            if (Py_CONTIGUOUS(gc))
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+            op = FROM_GC(gc);
+            if (Py_CONTIGUOUS(gc) && gc_pin_see_object(op))
                 gc_head_count++;
+            traverse = Py_TYPE(op)->tp_traverse;
+            (void) traverse(op, (visitproc)gc_pin_traverse1, &gc_head_count);
+        }
+    }
+
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+            op = FROM_GC(gc);
+            if (Py_CONTIGUOUS(gc) && gc_pin_unsee_object(op))
+                gc_head_count_check++;
+            traverse = Py_TYPE(op)->tp_traverse;
+            (void) traverse(op, (visitproc)gc_pin_traverse2, &gc_head_count_check);
+        }
     }
 
     if (gc_head_count < 1) {
         PyErr_SetString(PyExc_EnvironmentError, "no pinned objects");
+        return NULL;
+    }
+    if (gc_head_count != gc_head_count_check) {
+        PyErr_SetString(PyExc_EnvironmentError, "object count mismatch");
         return NULL;
     }
 
@@ -1153,30 +1288,34 @@ gc_pin(PyObject *self, PyObject *noargs)
         pgc[i].head.gc.gc_next = (PyGC_Head *) &pgc[i+1];
     }
 
+    xs = 0;
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
+            xs++;
+    }
+    x = (PyGC_Head **) PyMem_MALLOC(sizeof(PyGC_Head *) * xs);
     i = 0;
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
-        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
-            if (!Py_CONTIGUOUS(gc))
-                continue;
-
-            op = FROM_GC(gc);
-
-            gc->gc.gc_prev->gc.gc_next = gc->gc.gc_next;
-            gc->gc.gc_next->gc.gc_prev = gc->gc.gc_prev;
-
-            pgc[i].head.gc.gc_refs = gc->gc.gc_refs;
-            pgc[i].object = op;
-
-            pgcp = (struct pinned_gc_head_placeholder *) gc;
-            memset(pgcp, 0, sizeof(struct pinned_gc_head_placeholder));
-            pgcp->pgc = &pgc[i];
-
-            i++;
-        }
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
+            x[i++] = gc;
     }
 
+    state.i = 0;
+    state.pgc = pgc;
+
+    for (i = 0; i < xs; i++) {
+        gc = x[i];
+        op = FROM_GC(gc);
+        gc_pin_traverse3(op, &state);
+        traverse = Py_TYPE(op)->tp_traverse;
+        (void) traverse(op, (visitproc)gc_pin_traverse3, &state);
+    }
+
+    i = state.i;
     assert(i == gc_head_count);
+
     l = GEN_HEAD(NUM_GENERATIONS-1);
     r = l->gc.gc_next;
 
@@ -1193,12 +1332,23 @@ gc_pin(PyObject *self, PyObject *noargs)
     _PyMem_ContiguousBase = NULL;
     _PyMem_ContiguousEnd = NULL;
 
+    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
+        gc_list = GEN_HEAD(gen);
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+            op = FROM_GC(gc);
+            gc_pin_unsee_object(op);
+            traverse = Py_TYPE(op)->tp_traverse;
+            (void) traverse(op, (visitproc)gc_pin_traverse2, NULL);
+        }
+    }
+
     collecting = 1;
     collect(NUM_GENERATIONS-1);
     collecting = 0;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    PyMem_FREE(x);
+
+    return PyInt_FromSsize_t(gc_head_count);
 }
 
 PyDoc_STRVAR(gc_collect__doc__,
