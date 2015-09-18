@@ -137,6 +137,99 @@ if LINUX:
     libc.eventfd_write.restype = c_int
     libc.eventfd_write.argtypes = [c_int, c_uint64]
 
+    # int prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
+    libc.prctl.restype = ctypes.c_int
+    libc.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong]
+
+    # Values to pass as first argument to prctl()
+    libc.PR_SET_PDEATHSIG = 1  # Second arg is a signal
+    libc.PR_GET_PDEATHSIG = 2  # Second arg is a ptr to return the signal
+
+    # Get/set current->mm->dumpable
+    libc.PR_GET_DUMPABLE = 3
+    libc.PR_SET_DUMPABLE = 4
+
+    # Get/set unaligned access control bits (if meaningful)
+    libc.PR_GET_UNALIGN = 5
+    libc.PR_SET_UNALIGN = 6
+    libc.PR_UNALIGN_NOPRINT = 1  # silently fix up unaligned user accesses
+    libc.PR_UNALIGN_SIGBUS = 2  # generate SIGBUS on unaligned user access
+
+    # Get/set whether or not to drop capabilities on setuid() away from
+    # uid 0 (as per security/commoncap.c)
+    libc.PR_GET_KEEPCAPS = 7
+    libc.PR_SET_KEEPCAPS = 8
+
+    # Get/set floating-point emulation control bits (if meaningful)
+    libc.PR_GET_FPEMU = 9
+    libc.PR_SET_FPEMU = 10
+    libc.PR_FPEMU_NOPRINT = 1  # silently emulate fp operations accesses
+    libc.PR_FPEMU_SIGFPE = 2  # don't emulate fp operations, send SIGFPE instead
+
+    # Get/set floating-point exception mode (if meaningful)
+    libc.PR_GET_FPEXC = 11
+    libc.PR_SET_FPEXC = 12
+    libc.PR_FP_EXC_SW_ENABLE = 0x80  # Use FPEXC for FP exception enables
+    libc.PR_FP_EXC_DIV = 0x010000  # floating point divide by zero
+    libc.PR_FP_EXC_OVF = 0x020000  # floating point overflow
+    libc.PR_FP_EXC_UND = 0x040000  # floating point underflow
+    libc.PR_FP_EXC_RES = 0x080000  # floating point inexact result
+    libc.PR_FP_EXC_INV = 0x100000  # floating point invalid operation
+    libc.PR_FP_EXC_DISABLED = 0  # FP exceptions disabled
+    libc.PR_FP_EXC_NONRECOV = 1  # async non-recoverable exc. mode
+    libc.PR_FP_EXC_ASYNC = 2  # async recoverable exception mode
+    libc.PR_FP_EXC_PRECISE = 3  # precise exception mode
+
+    # Get/set whether we use statistical process timing or accurate timestamp
+    # process timing
+    libc.PR_SET_NAME = 15  # Set process name
+    libc.PR_GET_NAME = 16  # Get process name
+
+    # Get/set process endian
+    libc.PR_GET_ENDIAN = 19
+    libc.PR_SET_ENDIAN = 20
+    libc.PR_ENDIAN_BIG = 0
+    libc.PR_ENDIAN_LITTLE = 1  # True little endian mode
+    libc.PR_ENDIAN_PPC_LITTLE = 2  # "PowerPC" pseudo little endian
+
+    # Get/set process seccomp mode
+    libc.PR_GET_SECCOMP = 21
+    libc.PR_SET_SECCOMP = 22
+
+    # Get/set the capability bounding set (as per security/commoncap.c)
+    libc.PR_CAPBSET_READ = 23
+    libc.PR_CAPBSET_DROP = 24
+
+    # Get/set the process' ability to use the timestamp counter instruction
+    libc.PR_GET_TSC = 25
+    libc.PR_SET_TSC = 26
+    libc.PR_TSC_ENABLE = 1  # allow the use of the timestamp counter
+    libc.PR_TSC_SIGSEGV = 2  # throw a SIGSEGV instead of reading the TSC
+
+    # Get/set securebits (as per security/commoncap.c)
+    libc.PR_GET_SECUREBITS = 27
+    libc.PR_SET_SECUREBITS = 28
+
+    # Get/set the timerslack as used by poll/select/nanosleep
+    # A value of 0 means "use default"
+    libc.PR_SET_TIMERSLACK = 29
+    libc.PR_GET_TIMERSLACK = 30
+
+    libc.PR_TASK_PERF_EVENTS_DISABLE = 31
+    libc.PR_TASK_PERF_EVENTS_ENABLE = 32
+
+    # Set early/late kill mode for hwpoison memory corruption.
+    # This influences when the process gets killed on a memory corruption.
+    libc.PR_MCE_KILL = 33
+    libc.PR_MCE_KILL_CLEAR = 0
+    libc.PR_MCE_KILL_SET = 1
+
+    libc.PR_MCE_KILL_LATE = 0
+    libc.PR_MCE_KILL_EARLY = 1
+    libc.PR_MCE_KILL_DEFAULT = 2
+
+    libc.PR_MCE_KILL_GET = 34
+
 def sigtrap():
     libc._raise(signal.SIGTRAP)
 
