@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 TODO:
+- wsgiref
 - wsgi environ onceover
 - mmap for zero-copy responses
 """
@@ -46,7 +47,6 @@ class WsgiZygoteServer(ZygoteServer):
                     environ['wsgi.input'] = cStringIO.StringIO(environ['wsgi.input'])
                 if 'wsgi.errors' in environ:
                     environ['wsgi.errors'] = log
-
                 def start_response(status, response_headers, exc_info=None):
                     self.writeobjseq(1, status)
                     self.writeobjseq(2, response_headers)

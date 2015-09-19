@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+"""
+TODO:
+- fcntl.fcntl(sock.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+"""
 from __future__ import absolute_import
 
 import abc
@@ -93,8 +97,10 @@ class ZygoteBase(object):
             deathwatch_path=None,
             deathpact=False,
             forwarded_signals=(),
-            exchanged_fds=(),
             inherited_rlimits=(),
+            sent_fds=(),
+            prefork=None,
+            postfork=None
     ):
         super(ZygoteBase, self).__init__()
 
@@ -111,7 +117,11 @@ class ZygoteBase(object):
             raise TypeError(deathpact)
         self.forwarded_signals = forwarded_signals
         self.inherited_rlimits = inherited_rlimits
-        self.exchanged_fds = exchanged_fds
+        if not all(len(t) == 2 and all(t, lambda i: isinstance(i, int)) for t in sent_fds):
+            raise TypeError(t)
+        self.sent_fds = sent_fds
+        self.prefork = prefork
+        self.postfork = postfork
 
         self.unique_path = None
         self.conn = None
@@ -125,6 +135,14 @@ class ZygoteBase(object):
     @abc.abstractproperty
     def is_server(self):
         raise NotImplementedError()
+
+    def _fork(self):
+        if self.prefork is not None:
+            self.prefork()
+        pid = os.fork()
+        if self.postfork is not None:
+            self.postfork(pid)
+        return pid
 
     def new_client(self):
         if self.unique_path is None:
@@ -189,9 +207,9 @@ class ZygoteBase(object):
         self.setup_remote_pid()
         self.setup_deathpact()
         self.setup_forwarded_signals()
-        self.setup_rlimits()
+        self.setup_inherited_rlimits()
         self.setup_unique_path()
-        self.setup_exchanged_fds()
+        self.setup_sent_fds()
 
     def setup_deathsig(self):
         if self.deathsig is not None:
@@ -204,7 +222,7 @@ class ZygoteBase(object):
             raise TypeError()
 
         f = open(self.deathwatch_path, 'rb')
-        fork_pid = os.fork()
+        fork_pid = self._fork()
         if fork_pid:
             self.deathwatch_pid = fork_pid
             return
@@ -296,7 +314,7 @@ class ZygoteBase(object):
             except Exception:
                 pass
 
-    def setup_rlimits(self):
+    def setup_inherited_rlimits(self):
         if self.is_server:
             rlimits = self.readobj()
             for i in self.inherited_rlimits:
@@ -315,22 +333,26 @@ class ZygoteBase(object):
             if not os.path.exists(self.unique_path):
                 raise EnvironmentError(self.unique_path)
 
-    def setup_exchanged_fds(self):
-        FIXME
-
-        self.client_pid = get_sock_cred(self.conn)[0]
-        for fd in self.exchanged_fds:
-            ret, data = passfd.recvfd(self.conn.fileno())
-            if ret < 0:
-                raise ValueError(ret)
-            os.dup2(ret, fd)
-        self.write(str(os.getpid()))
-
-        for fd in self.exchanged_fds:
-            ret = passfd.sendfd(self.conn.fileno(), fd)
-            if ret < 0:
-                raise ValueError(ret)
-        self.server_pid = self.read()
+    def setup_sent_fds(self):
+        def send():
+            self.writeobj(self.sent_fds)
+            for fd, _ in self.sent_fds:
+                ret = passfd.sendfd(self.conn.fileno(), fd)
+                if ret < 0:
+                    raise RuntimeError(ret)
+        def recv():
+            recieved_fds = self.readobj()
+            for _, fd in received_fds:
+                ret, data = passfd.recvfd(self.conn.fileno())
+                if ret < 0:
+                    raise ValueError(ret)
+                os.dup2(ret, fd)
+        if self.is_server:
+            self.send()
+            self.recv()
+        else:
+            self.recv()
+            self.send()
 
 
 class ZygoteServer(ZygoteBase):
@@ -347,6 +369,9 @@ class ZygoteServer(ZygoteBase):
         self.think_interval = kwargs.pop('think_interval', self.DEFAULT_THINK_INTERVAL)
         self.idle_shutdown_interval = kwargs.pop('idle_shutdown_interval', None)
         self.autostart_lock_fd = kwargs.pop('autostart_lock_fd', None)
+        self.warmup_kwarg = kwargs.pop('warmup', None)
+
+        kwargs.setdefault('deathpact', 'either')
 
         super(ZygoteServer, self).__init__(path, **kwargs)
         if self.daemonize and (self.deathsig is not None):
@@ -364,6 +389,8 @@ class ZygoteServer(ZygoteBase):
     def warmup(self):
         if self.conn is not None:
             raise TypeError('Already connected')
+        if self.warmup_kwarg is not None:
+            self.warmup_kwarg()
 
     @abc.abstractmethod
     def serve(self):
@@ -470,7 +497,7 @@ class ZygoteServer(ZygoteBase):
 
     def handle_fork(self, conn):
         original_pid = os.getpid()
-        fork_pid = os.fork()
+        fork_pid = self._fork()
         if fork_pid:
             log.info('Forked(1) :: pid: %d' % (fork_pid,))
             conn.close()
@@ -482,7 +509,7 @@ class ZygoteServer(ZygoteBase):
             return
 
         if self.daemonize:
-            fork_pid = os.fork()
+            fork_pid = self._fork()
             if fork_pid:
                 log.info('Forked(2) :: pid: %d' % (fork_pid,))
                 os._exit(0)
@@ -535,7 +562,9 @@ class ZygoteClient(ZygoteBase):
         self.autostart_timeout = kwargs.pop('autostart_timeout', self.DEFAULT_AUTOSTART_TIMEOUT)
         self.autostart_sleep = kwargs.pop('autostart_sleep', self.DEFAULT_AUTOSTART_SLEEP)
         self.autostart_daemonize = kwargs.pop('autostart_daemonize', True)
+
         super(ZygoteClient, self).__init__(path, **kwargs)
+
         self.autostart_pid = None
 
     @property
@@ -584,7 +613,7 @@ class ZygoteClient(ZygoteBase):
                 log.warn('Multiple active threads detected')
 
             original_pid = os.getpid()
-            pid = os.fork()
+            pid = self._fork()
             if pid:
                 log.info('Autostart forked(1) :: pid: %d' % (pid,))
                 self.autostart_pid = pid
@@ -602,7 +631,7 @@ class ZygoteClient(ZygoteBase):
                 return self._connect()
 
             if self.autostart_daemonize:
-                fork_pid = os.fork()
+                fork_pid = self._fork()
                 if fork_pid:
                     log.info('Autostart forked(2) :: pid: %d' % (fork_pid,))
                     os._exit(0)
@@ -669,28 +698,21 @@ class ZygoteClient(ZygoteBase):
         self.try_command('kill')
 
 
-class InteractiveZygoteBase(object):
+class InteractiveZygoteServer(ZygoteServer):
 
-    exchanged_fds = ZygoteBase.exchanged_fds + (0, 1, 2)
-    forwarded_signals = ZygoteBase.forwarded_signals + tuple(
-        getattr(signal, name) for name in dir(signal) if name.startswith('SIG'))
-
-
-class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
-
-    def __init__(self, path, init=None, try_ipython=True, **kwargs):
+    def __init__(
+            self,
+            path,
+            try_ipython=True,
+            **kwargs
+    ):
+        if 'warmup' in kwargs:
+            _warmup = kwargs.pop('warmup')
+            def warmup():
+                exec options.cmd in globals(), globals()
+            kwargs['warmup'] = warmup
         super(InteractiveZygoteServer, self).__init__(path, **kwargs)
         self.try_ipython = try_ipython
-        self.init_fn = init
-
-    def init(self):
-        super(InteractiveZygoteServer, self).init()
-        if self.init_fn is not None:
-            self.init_fn()
-
-    def handshake(self):
-        super(InteractiveZygoteServer, self).handshake()
-        self.setup_deathpact()
 
     def work(self):
         cmd = self.read()
@@ -716,18 +738,21 @@ class InteractiveZygoteServer(InteractiveZygoteBase, ZygoteServer):
         code.InteractiveConsole(locals=globals()).interact()
 
 
-class InteractiveZygoteClient(InteractiveZygoteBase, ZygoteClient):
+class InteractiveZygoteClient(ZygoteClient):
 
-    def __init__(self, path, cmd=None, **kwargs):
+    def __init__(
+            self,
+            path,
+            **kwargs
+    ):
+        self.cmd = kwargs.pop('cmd', '')
+
+        kwargs.setdefault('sent_fds', ((0, 0), (1, 1), (2, 2)))
+        kwargs.setdefault('deathpact', True)
         super(InteractiveZygoteClient, self).__init__(path, **kwargs)
-        self.cmd = cmd
-
-    def handshake(self):
-        super(InteractiveZygoteClient, self).handshake()
-        self.setup_deathpact()
 
     def work(self):
-        self.write(self.cmd or '')
+        self.write(self.cmd)
         while True:
             signal.pause()  # lel
 
@@ -748,15 +773,24 @@ def main():
     path, = args
 
     if options.is_verbose:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)-15s %(process)-10s %(levelname)-6s : %(name)s : %(message)s'
+        )
 
     if options.is_server:
-        def init():
-            if options.cmd:
-                exec options.cmd in globals(), globals()
-        InteractiveZygoteServer(path, daemonize=options.is_daemon, init=init, try_ipython=options.is_ipython).run()
+        InteractiveZygoteServer(
+            path,
+            daemonize=options.is_daemon,
+            init=init,
+            try_ipython=options.is_ipython
+        ).run()
+
     else:
-        InteractiveZygoteClient(path, cmd=options.cmd).run()
+        InteractiveZygoteClient(
+            path,
+            cmd=options.cmd
+        ).run()
 
 
 if __name__ == '__main__':
