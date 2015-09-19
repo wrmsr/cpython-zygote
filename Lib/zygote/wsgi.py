@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+TODO:
+- wsgi environ onceover
+- mmap for zero-copy responses
+"""
 from __future__ import absolute_import
 
 import logging
