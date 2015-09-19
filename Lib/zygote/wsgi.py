@@ -11,40 +11,61 @@ log = logging.getLogger(__name__)
 
 class WsgiZygoteServer(ZygoteServer):
 
-    def __init__(self, path, app, **kwargs):
+    def __init__(
+            self,
+            path,
+            app_factory,
+            **kwargs
+    ):
+        self.nodie = kwargs.pop('nodie', False)
         super(WsgiZygoteServer, self).__init__(path, **kwargs)
-        self.app = app
+        self.app_factory = app_factory
+        self.app = None
 
-    def handshake(self):
-        super(WsgiZygoteServer, self).handshake()
-        self.setup_deathpact()
+    def warmup(self):
+        if self.app is not None:
+            raise TypeError()
+        super(WsgiZygoteServer, self).warmup()
+        self.app = self.app_factory()
 
-    def work(self):
-        while True:
-            environ = self.readobj()
-            if 'wsgi.input' in environ:
-                environ['wsgi.input'] = cStringIO.StringIO(environ['wsgi.input'])
-            if 'wsgi.errors' in environ:
-                environ['wsgi.errors'] = log
-            def start_response(status, response_headers, exc_info=None):
-                self.writeobj(status)
-                self.writeobj(response_headers)
-                self.writeobj(exc_info)
-            try:
-                for buf in self.app(environ, start_response):
-                    self.write(buf)
-            except Exception as e:
-                log.error(repr(e))
-            self.write('')
+    def serve(self):
+        try:
+            while True:
+                proceed = self.input.read(1)
+                if not proceed:
+                    break
+                if proceed != '\0':
+                    raise ValueError(proceed)
+                environ = self.readobj()
+                if 'wsgi.input' in environ:
+                    environ['wsgi.input'] = cStringIO.StringIO(environ['wsgi.input'])
+                if 'wsgi.errors' in environ:
+                    environ['wsgi.errors'] = log
+
+                def start_response(status, response_headers, exc_info=None):
+                    self.writeobjseq(1, status)
+                    self.writeobjseq(2, response_headers)
+                    self.writeobjseq(3, exc_info)
+                try:
+                    for buf in self.app(environ, start_response):
+                        self.writeobjseq(4, buf)
+                except Exception:
+                    log.exception('oops')
+                self.writeobjseq(5, None)
+            log.info('Done')
+        except Exception:
+            log.exception('oops')
+            raise
+        finally:
+            if not self.nodie:
+                os._exit(1)
+                raise RuntimeError('unreachable')
 
 
 class WsgiZygoteClient(ZygoteClient):
 
-    def handshake(self):
-        super(WsgiZygoteClient, self).handshake()
-        self.setup_deathpact()
-
     def __call__(self, environ, start_response):
+        self.output.write('\0')
         if 'wsgi.input' in environ:
             environ['wsgi.input'] = environ['wsgi.input'].read()
         if 'wsgi.errors' in environ:
@@ -52,13 +73,23 @@ class WsgiZygoteClient(ZygoteClient):
         if 'wsgi.file_wrapper' in environ:
             del environ['wsgi.file_wrapper']
         self.writeobj(environ)
-        status, response_headers, exc_info = self.readobj(), self.readobj(), self.readobj()
+        seq, status = self.readobjseq()
+        if seq != 1:
+            raise TypeError()
+        seq, response_headers = self.readobjseq()
+        if seq != 2:
+            raise TypeError()
+        seq, exc_info = self.readobjseq()
+        if seq != 3:
+            raise TypeError()
         start_response(status, response_headers, exc_info)
         while True:
-            buf = self.read()
-            if not buf:
+            seq, obj = self.readobjseq()
+            if seq == 5:
                 break
-            yield buf
+            if seq != 4:
+                raise TypeError()
+            yield obj
 
 
 def main():
