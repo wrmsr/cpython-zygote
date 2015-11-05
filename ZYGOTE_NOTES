@@ -104,3 +104,5 @@ hitlist:
   - with dense ownership pid table for reaper cleanup
    - *two* owner pids for transfer
   - still need sleep/notify, wtb unsafe.park :<
+
+https://github.com/wrmsr/hystrix-py
