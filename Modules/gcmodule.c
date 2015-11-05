@@ -22,13 +22,10 @@
 #include "frameobject.h"        /* for PyFrame_ClearFreeList */
 
 /* Get an object's GC head */
-#define AS_GC(o) (Py_PINNED(o) ? *((PyGC_Head **) ((PyGC_Head *)(o)-1)) : (PyGC_Head *)(o)-1)
+#define AS_GC(o) _PyObject_GC_AsGC(o)
 
 /* Get the object given the GC head */
-#define FROM_GC(g) (Py_PINNED_GC(g) ? ((PyGC_PinnedHead *)g)->object : (PyObject *)(((PyGC_Head *)g)+1))
-
-PyGC_PinnedHead *_PyGC_PinnedHeadBase = NULL;
-PyGC_PinnedHead *_PyGC_PinnedHeadEnd = NULL;
+#define FROM_GC(g) _PyObject_GC_FromGC(g)
 
 struct pinned_gc_head_placeholder {
     PyGC_PinnedHead *pgc;
@@ -222,6 +219,53 @@ GC_TENTATIVELY_UNREACHABLE
 #define IS_REACHABLE(o) ((AS_GC(o))->gc.gc_refs == GC_REACHABLE)
 #define IS_TENTATIVELY_UNREACHABLE(o) ( \
     (AS_GC(o))->gc.gc_refs == GC_TENTATIVELY_UNREACHABLE)
+
+PyGC_PinnedHead *_PyGC_PinnedHeadBase = NULL;
+PyGC_PinnedHead *_PyGC_PinnedHeadEnd = NULL;
+
+PyGC_Head *
+_PyObject_GC_AsGC(PyObject *o)
+{
+    PyGC_Head *g = (PyGC_Head *)(o)-1;
+
+    if (g->gc.gc_refs == _PyGC_REFS_RELOCATED)
+        return *((PyGC_Head **) g);
+    else
+        return g;
+
+    /*
+    if (!Py_PINNED(o)) {
+        return g;
+    }
+
+    if (g->gc_refs == _PyGC_REFS_RELOCATED) {
+        return *((PyGC_Head **) g);
+    }
+
+    pgc = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
+    memset(pgc, 0, sizeof(PyGC_PinnedHead) * gc_head_count);
+
+    pgc->head.gc.gc_next = g->gc.gc_next;
+    pgc->head.gc.gc_prev = g->gc.gc_prev;
+    pgc->head.gc.gc_refs = g->gc.gc_refs;
+    pgc->object = o;
+
+    g->gc.gc_next->gc.gc_prev = &g->head;
+    g->gc.gc_prev->gc.gc_next = &g->head;
+
+    g->gc.gc_next = (PyGC_Head *)pgc;
+    g->gc.gc_prev = NULL;
+    g->gc.gc_refs = _PyGC_REFS_RELOCATED;
+
+    return (PyGC_Head *)pgc;
+    */
+}
+
+PyObject *
+_PyObject_GC_FromGC(PyGC_Head *g)
+{
+    return Py_PINNED_GC(g) ? ((PyGC_PinnedHead *)g)->object : (PyObject *)(((PyGC_Head *)g)+1);
+}
 
 /*** list functions ***/
 
@@ -1176,38 +1220,61 @@ gc_pin_traverse2(PyObject *op, size_t *count)
 }
 
 struct gc_pin_traverse3_state {
-    PyGC_PinnedHead *pgc;
+    PyObject **objs;
     int i;
+    int len;
 };
 
 static int
-gc_pin_traverse3(PyObject *op, struct gc_pin_traverse3_state *state)
+gc_pin_traverse3(PyObject *op, struct gc_pin_traverse3_state *state3)
 {
-    PyGC_Head *gc;
-    struct pinned_gc_head_placeholder *pgcp;
+    assert(op != NULL);
+    if (Py_CONTIGUOUS(op) && gc_pin_see_object(op)) {
+        if (state3->i >= state3->len)
+            Py_FatalError("objs exceeded");
+        state3->objs[state3->i++] = op;
+    }
+    return 0;
+}
 
-    if (Py_CONTIGUOUS(op) && gc->gc.gc_refs != _PyGC_REFS_RELOCATED) {
-        gc = AS_GC(op);
+static int
+gc_pin_traverse4(PyObject *op, void *arg)
+{
+    assert(op != NULL);
+    gc_pin_unsee_object(op);
+    return 0;
+}
 
-        if (gc->gc.gc_next != NULL) {
-            gc->gc.gc_next->gc.gc_prev = gc->gc.gc_prev;
-            gc->gc.gc_prev->gc.gc_next = gc->gc.gc_next;
-        }
-        else
-            gc->gc.gc_prev = NULL;
+static int
+gc_relocate_head(PyObject *op, PyGC_PinnedHead *pgc)
+{
+    PyGC_Head *gc = (PyGC_Head *)(op)-1;
+    struct pinned_gc_head_placeholder *gcp = (struct pinned_gc_head_placeholder *) gc;
+    assert(op != NULL);
+    assert(pgc != NULL);
 
-        state->pgc[state->i].head.gc.gc_refs = gc->gc.gc_refs;
-        state->pgc[state->i].object = op;
+    if (gc->gc.gc_refs == _PyGC_REFS_RELOCATED)
+        return 0;
 
-        pgcp = (struct pinned_gc_head_placeholder *) gc;
-        memset(pgcp, 0, sizeof(struct pinned_gc_head_placeholder));
-        pgcp->pgc = &state->pgc[state->i];
-        gc->gc.gc_refs = _PyGC_REFS_RELOCATED;
+    memset(pgc, 0, sizeof(PyGC_PinnedHead));
+    pgc->head.gc.gc_next = gc->gc.gc_next;
+    pgc->head.gc.gc_prev = gc->gc.gc_prev;
+    pgc->head.gc.gc_refs = gc->gc.gc_refs;
+    pgc->object = op;
 
-        state->i++;
+    memset(gc, 0, sizeof(PyGC_Head));
+    gcp->pgc = pgc;
+    gc->gc.gc_refs = _PyGC_REFS_RELOCATED;
+
+    if (pgc->head.gc.gc_next != NULL) {
+        assert(pgc->head.gc.gc_prev != NULL);
+        assert(pgc->head.gc.gc_next->gc.gc_refs != _PyGC_REFS_RELOCATED);
+        assert(pgc->head.gc.gc_prev->gc.gc_refs != _PyGC_REFS_RELOCATED);
+        pgc->head.gc.gc_next->gc.gc_prev = &pgc->head;
+        pgc->head.gc.gc_prev->gc.gc_next = &pgc->head;
     }
 
-    return 0;
+    return 1;
 }
 
 PyDoc_STRVAR(gc_pin__doc__,
@@ -1221,17 +1288,12 @@ gc_pin(PyObject *self, PyObject *noargs)
     int i, gen;
     PyGC_Head *gc_list;
     PyGC_Head *gc;
-    PyGC_Head *tmp;
     size_t gc_head_count = 0;
     size_t gc_head_count_check = 0;
     PyObject *op;
     PyGC_PinnedHead *pgc;
-    PyGC_Head *l;
-    PyGC_Head *r;
     traverseproc traverse;
-    struct gc_pin_traverse3_state state;
-    PyGC_Head **x;
-    size_t xs = 0;
+    struct gc_pin_traverse3_state state3;
 
     if (_PyMem_PinnedBase != NULL) {
         PyErr_SetString(PyExc_EnvironmentError, "already pinned");
@@ -1241,7 +1303,6 @@ gc_pin(PyObject *self, PyObject *noargs)
         PyErr_SetString(PyExc_EnvironmentError, "contiguous allocation not enabled");
         return NULL;
     }
-    assert(_PyGC_PinnedHeadBase == NULL);
 
     collecting = 1;
     collect(NUM_GENERATIONS-1);
@@ -1280,57 +1341,23 @@ gc_pin(PyObject *self, PyObject *noargs)
         return NULL;
     }
 
-    pgc = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
-    memset(pgc, 0, sizeof(PyGC_PinnedHead) * gc_head_count);
+    state3.objs = (PyObject **) PyMem_MALLOC(sizeof(PyObject *) * gc_head_count);
+    state3.i = 0;
+    state3.len = gc_head_count;
 
-    for (i = 0; i < gc_head_count; i++) {
-        pgc[i].head.gc.gc_prev = (PyGC_Head *) &pgc[i-1];
-        pgc[i].head.gc.gc_next = (PyGC_Head *) &pgc[i+1];
-    }
-
-    xs = 0;
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
-        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
-            xs++;
+        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next) {
+            op = FROM_GC(gc);
+            if (Py_CONTIGUOUS(op) && gc_pin_see_object(op)) {
+                if (state3.i >= state3.len)
+                    Py_FatalError("objs exceeded");
+                state3.objs[state3.i++] = op;
+            }
+            traverse = Py_TYPE(op)->tp_traverse;
+            (void) traverse(op, (visitproc)gc_pin_traverse3, &state3);
+        }
     }
-    x = (PyGC_Head **) PyMem_MALLOC(sizeof(PyGC_Head *) * xs);
-    i = 0;
-    for (gen = 0; gen < NUM_GENERATIONS; gen++) {
-        gc_list = GEN_HEAD(gen);
-        for (gc = gc_list->gc.gc_next; gc != gc_list; gc = gc->gc.gc_next)
-            x[i++] = gc;
-    }
-
-    state.i = 0;
-    state.pgc = pgc;
-
-    for (i = 0; i < xs; i++) {
-        gc = x[i];
-        op = FROM_GC(gc);
-        gc_pin_traverse3(op, &state);
-        traverse = Py_TYPE(op)->tp_traverse;
-        (void) traverse(op, (visitproc)gc_pin_traverse3, &state);
-    }
-
-    i = state.i;
-    assert(i == gc_head_count);
-
-    l = GEN_HEAD(NUM_GENERATIONS-1);
-    r = l->gc.gc_next;
-
-    l->gc.gc_next = &pgc[0].head;
-    pgc[0].head.gc.gc_prev = l;
-
-    r->gc.gc_prev = &pgc[i-1].head;
-    pgc[i-1].head.gc.gc_next = r;
-
-    _PyGC_PinnedHeadBase = pgc;
-    _PyGC_PinnedHeadEnd = &pgc[i];
-    _PyMem_PinnedBase = _PyMem_ContiguousBase;
-    _PyMem_PinnedEnd = _PyMem_ContiguousEnd;
-    _PyMem_ContiguousBase = NULL;
-    _PyMem_ContiguousEnd = NULL;
 
     for (gen = 0; gen < NUM_GENERATIONS; gen++) {
         gc_list = GEN_HEAD(gen);
@@ -1338,15 +1365,30 @@ gc_pin(PyObject *self, PyObject *noargs)
             op = FROM_GC(gc);
             gc_pin_unsee_object(op);
             traverse = Py_TYPE(op)->tp_traverse;
-            (void) traverse(op, (visitproc)gc_pin_traverse2, NULL);
+            (void) traverse(op, (visitproc)gc_pin_traverse4, NULL);
         }
     }
+
+    pgc = (PyGC_PinnedHead *) PyMem_MALLOC(sizeof(PyGC_PinnedHead) * gc_head_count);
+    memset(pgc, 0, sizeof(PyGC_PinnedHead) * gc_head_count);
+
+    _PyGC_PinnedHeadBase = pgc;
+    _PyGC_PinnedHeadEnd = pgc + gc_head_count;
+
+    for (i = 0; i < gc_head_count; ++i) {
+        gc_relocate_head(state3.objs[i], &pgc[i]);
+    }
+
+    PyMem_FREE(state3.objs);
+
+    _PyMem_PinnedBase = _PyMem_ContiguousBase;
+    _PyMem_PinnedEnd = _PyMem_ContiguousEnd;
+    _PyMem_ContiguousBase = NULL;
+    _PyMem_ContiguousEnd = NULL;
 
     collecting = 1;
     collect(NUM_GENERATIONS-1);
     collecting = 0;
-
-    PyMem_FREE(x);
 
     return PyInt_FromSsize_t(gc_head_count);
 }

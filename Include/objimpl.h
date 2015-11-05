@@ -271,7 +271,10 @@ extern PyGC_PinnedHead *_PyGC_PinnedHeadEnd;
 #define Py_PINNED_GC(p)                         \
     ((void *) p >= (void *) _PyGC_PinnedHeadBase && (void *) p < (void *) _PyGC_PinnedHeadEnd)
 
-#define _Py_AS_GC(o) (Py_PINNED(o) ? *((PyGC_Head **) ((PyGC_Head *)(o)-1)) : (PyGC_Head *)(o)-1)
+PyAPI_FUNC(PyGC_Head *) _PyObject_GC_AsGC(PyObject *);
+PyAPI_FUNC(PyObject *) _PyObject_GC_FromGC(PyGC_Head *);
+
+#define _Py_AS_GC(o) _PyObject_GC_AsGC(o)
 
 #define _PyGC_REFS_UNTRACKED                    (-2)
 #define _PyGC_REFS_REACHABLE                    (-3)

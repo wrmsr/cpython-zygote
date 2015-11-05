@@ -20,6 +20,11 @@ elif sys.platform in DARWIN_PLATFORMS:
 else:
     raise EnvironmentError('Unsupported platform')
 
+# void *dlopen(const char *filename, int flag);
+# char *dlerror(void);
+# void *dlsym(void *handle, const char *symbol);
+# int dlclose(void *handle);
+
 libc.malloc.restype = c_void_p
 libc.malloc.argtypes = [c_size_t]
 
@@ -230,18 +235,26 @@ if LINUX:
 
     libc.PR_MCE_KILL_GET = 34
 
+
 def sigtrap():
     libc._raise(signal.SIGTRAP)
 
+
 class Malloc(object):
 
-    def __init__(self, sz):
-        self.sz = sz
+    def __init__(self, arg):
+        super(Malloc, self).__init__()
+        self.arg = arg
         self.base = 0
 
     def __enter__(self):
-        self.base = libc.malloc(self.sz)
-        return self.base
+        if isinstance(self.arg, numbers.Integral):
+            self.base = libc.malloc(self.arg)
+            return self.base
+        else:
+            ty = ctypes.POINTER(self.arg)
+            self.base = libc.malloc(ctypes.sizeof(self.arg))
+            return ctypes.cast(self.base, ty)
 
     def __exit__(self, et, e, tb):
         if self.base != 0:
@@ -253,3 +266,12 @@ class Malloc(object):
 
     def __long__(self):
         return long(self.base)
+
+
+dl = ctypes.CDLL('libdl.so.2')
+
+dl.dlopen.restype = ctypes.c_void_p
+dl.dlopen.argtypes = [ctypes.c_char_p, ctypes.c_int]
+
+dl.dlsym.restype = ctypes.c_uint64
+dl.dlsym.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
