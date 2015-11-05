@@ -587,6 +587,17 @@ get_alloc_context(void)
     return root_context;
 }
 
+void
+PyMem_NewAllocContext(void)
+{
+    struct alloc_context *new_context;
+    LOCK();
+    new_context = (struct alloc_context *) PyMem_MALLOC(sizeof(struct alloc_context));
+    initialize_alloc_context(new_context);
+    root_context = new_context;
+    UNLOCK();
+}
+
 /* How many arena_objects do we initially allocate?
  * 16 = can allocate 16 arenas = 16 * ARENA_SIZE = 4MB before growing the
  * `arenas` vector.
